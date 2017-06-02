@@ -9,10 +9,15 @@ def preprocess(data):
     y = np.array([np.array(s[1][:2]) for s in data])
     return X, y
 
-train = np.load("./arm_joints_train.npy")
-test = np.load("./arm_joints_test.npy")
+# train = np.load("./arm_joints_train.npy")
+# test = np.load("./arm_joints_test.npy")
+data = np.load("./arm_joints_bag_data.npy")[:107]
+size = int(len(data) * 0.2)
+shuffle(data)
 
-shuffle(train)
+train = data[size:]
+test = data[:size]
+
 
 X, y = preprocess(train)
 testX, testy = preprocess(test)
@@ -28,24 +33,24 @@ testX, testy = preprocess(test)
 knn = neighbors.KNeighborsRegressor(n_neighbors=3)
 knn.fit(X, y)
 
-for i in range(len(testX)):
-    x, y_query = testX[i], testy[i]
-    ind = knn.kneighbors(x)[1][0]
-    n = y[ind]
-    pred = knn.predict([x])[0]
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.scatter((pred[0]), (pred[1]), c='k', marker='x', s=25, label='prediction')
-    ax.scatter((y_query[0]), (y_query[1]), c='g', marker='^', s=20, label='query')
-    ax.scatter(y[:,0], y[:,1], c='r', marker='o', s=20, label='train')
-    ax.scatter(n[:,0], n[:,1], c='b', marker='s', s=25, label='neighbors')
-    plt.legend(loc='upper left')
-    plt.xlabel('shoulder joint angle')
-    plt.ylabel('elbow joint angle')
-    plt.show()
-# print knn.score(testX, testy)
+# for i in range(len(testX)):
+#     x, y_query = testX[i], testy[i]
+#     ind = knn.kneighbors(x)[1][0]
+#     n = y[ind]
+#     pred = knn.predict([x])[0]
+#     fig = plt.figure()
+#     ax = fig.add_subplot(111)
+#     ax.scatter((pred[0]), (pred[1]), c='k', marker='x', s=25, label='prediction')
+#     ax.scatter((y_query[0]), (y_query[1]), c='g', marker='^', s=20, label='query')
+#     ax.scatter(y[:,0], y[:,1], c='r', marker='o', s=20, label='train')
+#     ax.scatter(n[:,0], n[:,1], c='b', marker='s', s=25, label='neighbors')
+#     plt.legend(loc='upper left')
+#     plt.xlabel('shoulder joint angle')
+#     plt.ylabel('elbow joint angle')
+#     plt.show()
+print knn.score(testX, testy)
 # print np.var(testy, axis=0)
-# pred = knn.predict(testX)
+pred = knn.predict(testX)
 # fig = plt.figure()
 # ax = fig.add_subplot(111)
 # ax.scatter(testy[:,0], testy[:,1], c='r', marker='o', s=20, label='true')

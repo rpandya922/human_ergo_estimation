@@ -29,69 +29,64 @@ def heardEnter():
             return True
     return False
 
-def move():
-    pose = geometry_msgs.msg.Pose()
-    x = np.random.uniform(0.5, 1.1, 1)[0]
-    y = 0.28
-    z = np.random.uniform(0.3, 0.8, 1)[0]
-    pose.position.x = x
-    pose.position.y = y
-    pose.position.z = z
-    pose.orientation.x = 0.5179492136281051
-    pose.orientation.y = -0.4655689719259183
-    pose.orientation.z = 0.5199804480287061
-    pose.orientation.w = -0.4945649382535493
+# def move():
+#     pose = geometry_msgs.msg.Pose()
+#     x = np.random.uniform(0.5, 1.1, 1)[0]
+#     y = 0.28
+#     z = np.random.uniform(0.3, 0.8, 1)[0]
+#     pose.position.x = x
+#     pose.position.y = y
+#     pose.position.z = z
+#     pose.orientation.x = 0.5179492136281051
+#     pose.orientation.y = -0.4655689719259183
+#     pose.orientation.z = 0.5199804480287061
+#     pose.orientation.w = -0.4945649382535493
 
-    group.set_pose_target(pose)
-    plan = group.plan()
-    group.go(wait=True)
+#     group.set_pose_target(pose)
+#     plan = group.plan()
+#     group.go(wait=True)
 
-def preprocess(data):
-    X = np.array([np.array(s[0]) for s in data])
-    y = np.array([s[1][3:] for s in data])
-    return X, y
-def predict(pred, real):
-    for i in range(len(pred)):
-        p = pred[i]
-        y = real[i]
-        print min([np.linalg.norm(p - y), np.linalg.norm(-p - y)])
-
-print "============ Starting tutorial setup"
-moveit_commander.roscpp_initialize(sys.argv)
-rospy.init_node('erg',
-                anonymous=True)
-robot = moveit_commander.RobotCommander()
-scene = moveit_commander.PlanningSceneInterface()
-# group = moveit_commander.MoveGroupCommander("right_arm")
-group = moveit_commander.MoveGroupCommander("left_arm")
-display_trajectory_publisher = rospy.Publisher(
-                                    '/move_group/display_planned_path',
-                                    moveit_msgs.msg.DisplayTrajectory)
-print "============ Reference frame: %s" % group.get_planning_frame()
-print "============ Reference frame: %s" % group.get_end_effector_link()
-group.set_goal_tolerance(0.05)
-
+# print "============ Starting tutorial setup"
+# moveit_commander.roscpp_initialize(sys.argv)
+# rospy.init_node('erg',
+#                 anonymous=True)
+# robot = moveit_commander.RobotCommander()
+# scene = moveit_commander.PlanningSceneInterface()
+# # group = moveit_commander.MoveGroupCommander("right_arm")
+# group = moveit_commander.MoveGroupCommander("left_arm")
+# display_trajectory_publisher = rospy.Publisher(
+#                                     '/move_group/display_planned_path',
+#                                     moveit_msgs.msg.DisplayTrajectory)
+# print "============ Reference frame: %s" % group.get_planning_frame()
+# print "============ Reference frame: %s" % group.get_end_effector_link()
+# group.set_goal_tolerance(0.05)
+rospy.init_node('recorder', anonymous=True)
+# print "now here"
 global sb
 global pos
 pos = []
 def callback(data):
     global pos
     pos = data.position
-    sb.unregister()
+    # sb.unregister()
 # x = [0.6, 1]
 # y = 0.28
 # z = [0.1, 0.8]
 all_data = []
+# print "before main"
 if __name__ == '__main__':
-    rospy.on_shutdown(lambda: np.save("arm_joints_data", all_data))
+    rospy.on_shutdown(lambda: np.save("arm_joints_bag_data", all_data))
     listener = tf.TransformListener()
+    print "here"
+    sb = rospy.Subscriber("kinmodel_state", sensor_msgs.JointState, callback)
     while not rospy.is_shutdown():
         if heardEnter():
-            move()
-            while not heardEnter():
-                continue
-            sb = rospy.Subscriber("kinmodel_state", sensor_msgs.JointState, callback)
-            rospy.sleep(1)
+            # move()
+            # while not heardEnter():
+            #     continue
+            # sb = rospy.Subscriber("kinmodel_state", sensor_msgs.JointState, callback)
+            # rospy.sleep(1)
             print "Recorded Position: " + str(pos)
             (trans, rot) = listener.lookupTransform('/base', 'left_gripper', rospy.Time(0))
+            print "Baxter Arm: " + str(trans)
             all_data.append((trans, pos))
