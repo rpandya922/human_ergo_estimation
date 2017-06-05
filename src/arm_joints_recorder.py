@@ -72,7 +72,7 @@ def callback(data):
 # z = [0.1, 0.8]
 all_data = []
 if __name__ == '__main__':
-    rospy.on_shutdown(lambda: np.save("arm_joints_bag_data", all_data))
+    rospy.on_shutdown(lambda: np.save("arm_joints_data", all_data))
     listener = tf.TransformListener()
     print "here"
     sb = rospy.Subscriber("kinmodel_state", sensor_msgs.JointState, callback)
@@ -81,7 +81,17 @@ if __name__ == '__main__':
             move()
             while not heardEnter():
                 continue
-            print "Recorded Position: " + str(pos)
+
+            chosen = pos
+            print "Recorded Position: " + str(chosen)
             (trans, rot) = listener.lookupTransform('/base', 'left_gripper', rospy.Time(0))
             print "Baxter Arm: " + str(trans)
-            all_data.append((trans, pos))
+
+            while not heardEnter():
+                continue
+
+            feasible = []
+            while not heardEnter():
+                print "Position" + str(pos)
+                feasible.append(pos)
+            all_data.append((trans, pos, feasible))
