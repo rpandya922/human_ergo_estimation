@@ -40,8 +40,17 @@ def distance_cost(theta, theta_star, w):
     @return: the cost for this configuration
     """
     # l = np.diag(w)
-    return np.sum([w[i] * ((theta[i] - theta_star[i])) for i in range(len(w))])
+    return np.sum([w[i] * ((theta[i] - theta_star[i])**2) for i in range(len(w))])
     # return np.dot(theta - theta_star, np.dot(l, theta - theta_star))
+def rot_cost(theta, theta_star, w):
+    c = 0
+    t_norm = normalize(theta)
+    t_s_norm = normalize(theta_star)
+    for i in range(len(w)):
+        t = t_norm[i]
+        t_s = t_s_norm[i]
+        c += np.abs(w[i]) * min(np.abs(t - t_s), 6.28 - max(t, t_s) + min(t, t_s))
+    return c
 def prob_theta_given_lam_stable(theta, theta_star, w, Theta_x, cost):
     p = -ALPHA * cost(theta, theta_star, w)
     costs = []
@@ -105,7 +114,7 @@ print avg
 # for v in x_ax:
 #     y_star[1] = v
 def cost(theta, theta_star, w):
-    return distance_cost(theta, theta_star, w)
+    return rot_cost(theta, theta_star, w)
 new_data = []
 for i in range(len(X)):
     x, y = X[i], normalize(ys[i])
@@ -115,13 +124,13 @@ for i in range(len(X)):
     new_data.append((x, y, Y_x))
 var = mvn(mean=np.hstack(([0, 0, 0], avg)), cov=np.diag([100, 100, 100, 20, 20, 20]))
 def prior(vec):
-    # return 1
-    return var.pdf(vec)
+    return 1
+    # return var.pdf(vec)
 def objective(lam):
     return -np.sum([np.log(prob_lam_given_theta(theta, lam, Theta_x, cost, prior)) for (x, theta, Theta_x) in new_data])
 def objective_stable(lam):
     return -np.sum([prob_lam_given_theta_stable(theta, lam, Theta_x, cost, prior) for (x, theta, Theta_x) in new_data])
-res = minimize(objective_stable, [0, 1, 0, 10, 10, 10])
+res = minimize(objective_stable, [0, 1, 0, 0, 0, 0])
 l = res.x
 print "weights: " + str(np.array(l[:3]) / np.linalg.norm(l[:3]))
 print "theta*: " + str(l[3:])
