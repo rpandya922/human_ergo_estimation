@@ -92,6 +92,8 @@ def prob_lam_given_theta(theta, lam, Theta_x, cost, prior):
     w = np.array(lam[:3]) / np.linalg.norm(lam[:3])
     theta_star = lam[3:]
     return prob_theta_given_lam(theta, theta_star, w, Theta_x, cost) * prior(lam)
+def mle(Theta_x, lam, cost, prior):
+    return max(Theta_x, key=lambda t: prob_lam_given_theta(t, lam, Theta_x, cost, prior))
 def printProb(theta, lam, Theta_x, cost, prior):
     w = np.array(lam[:3]) / np.linalg.norm(lam[:3])
     theta_star = lam[3:]
@@ -106,23 +108,15 @@ data = np.load('./arm_joints_feasible_data.npy')
 feasible_sets = np.load("./feasible_sets2.npy")
 X, ys = preprocess(data)
 avg = np.mean(ys, axis=0)
-print avg
-# y_star = [0.75719418, 0.30581145, 0.07879616]
-# x_ax = np.arange(0, 4, 0.1)
-# y1 = []
-# y2 = []
-# y3 = []
-# y4 = []
-# for v in x_ax:
-#     y_star[1] = v
+
 def cost(theta, theta_star, w):
-    return abs_cost(theta, theta_star, w)
+    return distance_cost(theta, theta_star, w)
 new_data = []
 for i in range(len(X)):
     x, y = X[i], normalize(ys[i])
-    Y_x = create_feasible_set(y, 1)
-    # Y_x = feasible_sets[i]
-    # Y_x = np.vstack((Y_x, y))
+    # Y_x = create_feasible_set(y, 1)
+    Y_x = feasible_sets[i]
+    Y_x = np.vstack((Y_x, y))
     new_data.append((x, y, Y_x))
 var = mvn(mean=np.hstack(([0, 0, 0], avg)), cov=np.diag([100, 100, 100, 20, 20, 20]))
 def prior(vec):
@@ -132,62 +126,35 @@ def objective(lam):
     return -np.sum([np.log(prob_lam_given_theta(theta, lam, Theta_x, cost, prior)) for (x, theta, Theta_x) in new_data])
 def objective_stable(lam):
     return -np.sum([prob_lam_given_theta_stable(theta, lam, Theta_x, cost, prior) for (x, theta, Theta_x) in new_data])
-res = minimize(objective_stable, [0, 1, 0, 1, 1, 1])
+res = minimize(objective_stable, [0, 1, 0, 0, 0, 0], method='Powell', options={'disp': True})
 l = res.x
-print "weights: " + str(np.array(l[:3]) / np.linalg.norm(l[:3]))
-print "theta*: " + str(l[3:])
-theta_star = l[3:]
+# print "weights: " + str(np.array(l[:3]) / np.linalg.norm(l[:3]))
+# print "theta*: " + str(normalize(l[3:]))
+theta_star = normalize(l[3:])
 
-(x, theta, Theta_x) = new_data[0]
-lam1 = np.hstack((l[:3], [5, 5, 5]))
-print printProb(theta, l, Theta_x, cost, prior)
-print printProb(theta, lam1, Theta_x, cost, prior)
-
-ys = []
-for d in data:
-    ys.append(d[1][:3])
-ys = np.array(ys)
-fs = np.array(feasible)
-# fs = []
-# for f in feasible_sets:
-#     fs.extend(f)
-# fs = np.array(fs)
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(xs=ys[:,0], ys=ys[:,1], zs=ys[:,2], s=200, label='training')
-ax.scatter(xs=theta_star[0], ys=theta_star[1], zs=theta_star[2], c='r', s=300, label='optimized')
-ax.scatter(xs=fs[:,0], ys=fs[:,1], zs=fs[:,2], c='g', marker='^', s=100, label='feasible')
-ax.scatter(xs=avg[0], ys=avg[1], zs=avg[2], c='r', marker='^', s=300, label='average')
-plt.legend(loc='upper left')
-plt.show()
-
-# fs = []
-# for f in feasible_sets:
-#     fs.extend(f)
-# fs = np.array(fs)
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# ax.scatter(xs=fs[:,0], ys=fs[:,1], zs=fs[:,2], s=20)
-# ax.scatter(y_star[0], y_star[1], y_star[2], c='r', s=25)
-# plt.show()
-
-    # norm = np.linalg.norm(l)
-    # y1.append(norm)
-    # l = l / norm
-    # y2.append(l[0])
-    # y3.append(l[1])
-    # y4.append(l[2])
-# plt.plot(x_ax, y1)
-# plt.xlabel("std dev")
-# plt.ylabel("lambda norm")
-# plt.show()
-
-# fig = plt.figure()
-# ax = fig.add_subplot(111)
-# ax.plot(x_ax, y2, label='lambda[0]')
-# ax.plot(x_ax, y3, label='lambda[1]')
-# ax.plot(x_ax, y4, label='lambda[2]')
-# plt.legend(loc='upper left')
-# plt.xlabel('y_star[1]')
-# plt.ylabel('lambda val')
-# plt.show()
+for (x, theta, Theta_x) in new_data:
+    mlest = mle(Theta_x, l, cost, prior)
+    mle_opt = mle(Theta_x, np.hstack((l[:3], avg)), cost, prior)
+    spread1 = (max(Theta_x, key=lambda x: x[0]) - min(Theta_x, key=lambda x: x[0]))[0]
+    spread2 = (max(Theta_x, key=lambda x: x[1]) - min(Theta_x, key=lambda x: x[1]))[1]
+    spread3 = (max(Theta_x, key=lambda x: x[2]) - min(Theta_x, key=lambda x: x[2]))[2]
+    diff1 = np.abs(theta[0] - mlest[0])
+    diff2 = np.abs(theta[1] - mlest[1])
+    diff3 = np.abs(theta[2] - mlest[2])
+    print "Spread Shoulder 1: " + str(spread1)
+    print "Difference Shoulder 1: " + str(diff1)
+    print "Spread Shoulder 2: " + str(spread2)
+    print "Difference Joint 2: " + str(diff2)
+    print "Spread Elbow: " + str(spread3)
+    print "Difference Elbow: " + str(diff3)
+    print
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(xs=mlest[0], ys=mlest[1], zs=mlest[2], c='k', marker='>', s=700, label='mle')
+    ax.scatter(xs=mle_opt[0], ys=mle_opt[1], zs=mle_opt[2], c='y', marker='<', s=700, label='mle from avg')
+    ax.scatter(xs=theta[0], ys=theta[1], zs=theta[2], s=700, label='training')
+    ax.scatter(xs=theta_star[0], ys=theta_star[1], zs=theta_star[2], c='r', s=300, label='optimized')
+    ax.scatter(xs=Theta_x[:,0], ys=Theta_x[:,1], zs=Theta_x[:,2], c='g', marker='^', s=100, label='feasible')
+    ax.scatter(xs=avg[0], ys=avg[1], zs=avg[2], c='r', marker='^', s=300, label='average')
+    plt.legend(loc='upper left')
+    plt.show()
