@@ -40,7 +40,7 @@ def distance_cost(theta, theta_star, w):
     @return: the cost for this configuration
     """
     # l = np.diag(w)
-    return np.sum([w[i] * ((theta[i] - theta_star[i])**2) for i in range(len(w))])
+    return np.sum([np.abs(w[i]) * ((theta[i] - theta_star[i])**2) for i in range(len(w))])
     # return np.dot(theta - theta_star, np.dot(l, theta - theta_star))
 def rot_cost(theta, theta_star, w):
     c = 0
@@ -51,6 +51,8 @@ def rot_cost(theta, theta_star, w):
         t_s = t_s_norm[i]
         c += np.abs(w[i]) * min(np.abs(t - t_s), 6.28 - max(t, t_s) + min(t, t_s))
     return c
+def abs_cost(theta, theta_star, w):
+    return np.sum([np.abs(w[i]) * np.abs(theta[i] - theta_star[i]) for i in range(len(w))])
 def prob_theta_given_lam_stable(theta, theta_star, w, Theta_x, cost):
     p = -ALPHA * cost(theta, theta_star, w)
     costs = []
@@ -114,7 +116,7 @@ print avg
 # for v in x_ax:
 #     y_star[1] = v
 def cost(theta, theta_star, w):
-    return rot_cost(theta, theta_star, w)
+    return abs_cost(theta, theta_star, w)
 new_data = []
 for i in range(len(X)):
     x, y = X[i], normalize(ys[i])
@@ -130,7 +132,7 @@ def objective(lam):
     return -np.sum([np.log(prob_lam_given_theta(theta, lam, Theta_x, cost, prior)) for (x, theta, Theta_x) in new_data])
 def objective_stable(lam):
     return -np.sum([prob_lam_given_theta_stable(theta, lam, Theta_x, cost, prior) for (x, theta, Theta_x) in new_data])
-res = minimize(objective_stable, [0, 1, 0, 0, 0, 0])
+res = minimize(objective_stable, [0, 1, 0, 1, 1, 1])
 l = res.x
 print "weights: " + str(np.array(l[:3]) / np.linalg.norm(l[:3]))
 print "theta*: " + str(l[3:])
@@ -152,7 +154,7 @@ fs = np.array(feasible)
 # fs = np.array(fs)
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.scatter(xs=ys[:,0], ys=ys[:,1], zs=ys[:,2], s=200, label='optimal')
+ax.scatter(xs=ys[:,0], ys=ys[:,1], zs=ys[:,2], s=200, label='training')
 ax.scatter(xs=theta_star[0], ys=theta_star[1], zs=theta_star[2], c='r', s=300, label='optimized')
 ax.scatter(xs=fs[:,0], ys=fs[:,1], zs=fs[:,2], c='g', marker='^', s=100, label='feasible')
 ax.scatter(xs=avg[0], ys=avg[1], zs=avg[2], c='r', marker='^', s=300, label='average')
