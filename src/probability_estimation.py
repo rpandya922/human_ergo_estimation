@@ -129,51 +129,52 @@ def print_spread_diff(new_data, l, theta_star, avg):
         ax.scatter(xs=avg[0], ys=avg[1], zs=avg[2], c='r', marker='^', s=300, label='average')
         plt.legend(loc='upper left')
         plt.show()
+def predictProbs():
+    data = np.load('./arm_joints_feasible_data.npy')
+    feasible_sets = np.load("./feasible_sets2.npy")
+    X, ys = preprocess(data)
+    avg = np.mean(ys, axis=0)
+
+    def cost(theta, theta_star, w):
+        return distance_cost(theta, theta_star, w)
+    new_data = []
+    for i in range(len(X)):
+        x, y = X[i], normalize(ys[i])
+        # Y_x = create_feasible_set(y, 1)
+        Y_x = feasible_sets[i]
+        Y_x = np.vstack((Y_x, y))
+        new_data.append((x, y, Y_x))
+
+    var = mvn(mean=np.hstack(([0, 0, 0], avg)), cov=np.diag([100, 100, 100, 20, 20, 20]))
+    def prior(vec):
+        # return var.pdf(vec)
+        return 1
+    def objective(lam):
+        return -np.sum([np.log(prob_lam_given_theta(theta, lam, Theta_x, cost, prior)) for (x, theta, Theta_x) in new_data])
+
+    error1 = 0
+    error2 = 0
+    error3 = 0
+    i = 0
+    for sample in new_data:
+        (testX, testTheta, testTheta_x) = sample
+        hold_out_data = []
+        for s in new_data:
+            if s is not sample:
+                hold_out_data.append(s)
+        def objective_stable(lam):
+            return -np.sum([prob_lam_given_theta_stable(theta, lam, Theta_x, cost, prior) for (x, theta, Theta_x) in hold_out_data])
+        res = minimize(objective_stable, [0, 1, 0, 0, 0, 0], method='Powell', options={'disp': True})
+        l = res.x
+        theta_star = normalize(l[3:])
+
+        mlest = mle(testTheta_x, l, cost, prior)
+        error1 += np.abs(mlest[0] - testTheta[0])
+        error2 += np.abs(mlest[1] - testTheta[1])
+        error3 += np.abs(mlest[2] - testTheta[2])
+
+    print "Joint 1: " + str(error1 / len(new_data))
+    print "Joint 2: " + str(error2 / len(new_data))
+    print "Joint 3: " + str(error3 / len(new_data))
 #########################################################
-
-data = np.load('./arm_joints_feasible_data.npy')
-feasible_sets = np.load("./feasible_sets2.npy")
-X, ys = preprocess(data)
-avg = np.mean(ys, axis=0)
-
-def cost(theta, theta_star, w):
-    return distance_cost(theta, theta_star, w)
-new_data = []
-for i in range(len(X)):
-    x, y = X[i], normalize(ys[i])
-    # Y_x = create_feasible_set(y, 1)
-    Y_x = feasible_sets[i]
-    Y_x = np.vstack((Y_x, y))
-    new_data.append((x, y, Y_x))
-
-var = mvn(mean=np.hstack(([0, 0, 0], avg)), cov=np.diag([100, 100, 100, 20, 20, 20]))
-def prior(vec):
-    # return var.pdf(vec)
-    return 1
-def objective(lam):
-    return -np.sum([np.log(prob_lam_given_theta(theta, lam, Theta_x, cost, prior)) for (x, theta, Theta_x) in new_data])
-
-error1 = 0
-error2 = 0
-error3 = 0
-i = 0
-for sample in new_data:
-    (testX, testTheta, testTheta_x) = sample
-    hold_out_data = []
-    for s in new_data:
-        if s is not sample:
-            hold_out_data.append(s)
-    def objective_stable(lam):
-        return -np.sum([prob_lam_given_theta_stable(theta, lam, Theta_x, cost, prior) for (x, theta, Theta_x) in hold_out_data])
-    res = minimize(objective_stable, [0, 1, 0, 0, 0, 0], method='Powell', options={'disp': True})
-    l = res.x
-    theta_star = normalize(l[3:])
-
-    mlest = mle(testTheta_x, l, cost, prior)
-    error1 += np.abs(mlest[0] - testTheta[0])
-    error2 += np.abs(mlest[1] - testTheta[1])
-    error3 += np.abs(mlest[2] - testTheta[2])
-
-print "Joint 1: " + str(error1 / len(new_data))
-print "Joint 2: " + str(error2 / len(new_data))
-print "Joint 3: " + str(error3 / len(new_data))
+predictProbs()
