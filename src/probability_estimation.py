@@ -176,4 +176,19 @@ def predictProbs():
     print "Joint 1: " + str(error1 / len(new_data))
     print "Joint 2: " + str(error2 / len(new_data))
     print "Joint 3: " + str(error3 / len(new_data))
+def evaluate_lambda(lam, data, cost, prior):
+    error1 = 0
+    error2 = 0
+    error3 = 0
+    i = 0
+    for sample in data:
+        (testX, testTheta, testTheta_x) = sample
+        mlest = mle(testTheta_x, lam, cost, prior)
+        error1 += np.abs(mlest[0] - testTheta[0])
+        error2 += np.abs(mlest[1] - testTheta[1])
+        error3 += np.abs(mlest[2] - testTheta[2])
+
+    print "Joint 1: " + str(error1 / len(data))
+    print "Joint 2: " + str(error2 / len(data))
+    print "Joint 3: " + str(error3 / len(data))
 #########################################################
