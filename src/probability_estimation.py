@@ -49,7 +49,7 @@ def rot_cost(theta, theta_star, w):
     for i in range(len(w)):
         t = t_norm[i]
         t_s = t_s_norm[i]
-        c += np.abs(w[i]) * min(np.abs(t - t_s), 6.28 - max(t, t_s) + min(t, t_s))
+        c += np.abs(w[i]) * (min(np.abs(t - t_s), 6.28 - max(t, t_s) + min(t, t_s))**2)
     return c
 def abs_cost(theta, theta_star, w):
     return np.sum([np.abs(w[i]) * np.abs(theta[i] - theta_star[i]) for i in range(len(w))])
@@ -102,6 +102,33 @@ def printProb(theta, lam, Theta_x, cost, prior):
     denom = np.sum([np.exp(-ALPHA * cost(theta_prime, theta_star, w)) for theta_prime in Theta_x])
     print "Denom: " + str(denom)
     return p / denom * prior(lam)
+def print_spread_diff(new_data, l, theta_star, avg):
+    for (x, theta, Theta_x) in new_data:
+        mlest = mle(Theta_x, l, cost, prior)
+        mle_opt = mle(Theta_x, np.hstack((l[:3], avg)), cost, prior)
+        spread1 = (max(Theta_x, key=lambda x: x[0]) - min(Theta_x, key=lambda x: x[0]))[0]
+        spread2 = (max(Theta_x, key=lambda x: x[1]) - min(Theta_x, key=lambda x: x[1]))[1]
+        spread3 = (max(Theta_x, key=lambda x: x[2]) - min(Theta_x, key=lambda x: x[2]))[2]
+        diff1 = np.abs(theta[0] - mlest[0])
+        diff2 = np.abs(theta[1] - mlest[1])
+        diff3 = np.abs(theta[2] - mlest[2])
+        print "Spread Shoulder 1: " + str(spread1)
+        print "Difference Shoulder 1: " + str(diff1)
+        print "Spread Shoulder 2: " + str(spread2)
+        print "Difference Joint 2: " + str(diff2)
+        print "Spread Elbow: " + str(spread3)
+        print "Difference Elbow: " + str(diff3)
+        print
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(xs=mlest[0], ys=mlest[1], zs=mlest[2], c='k', marker='>', s=700, label='mle')
+        ax.scatter(xs=mle_opt[0], ys=mle_opt[1], zs=mle_opt[2], c='y', marker='<', s=700, label='mle from avg')
+        ax.scatter(xs=theta[0], ys=theta[1], zs=theta[2], s=700, label='training')
+        ax.scatter(xs=theta_star[0], ys=theta_star[1], zs=theta_star[2], c='r', s=300, label='optimized')
+        ax.scatter(xs=Theta_x[:,0], ys=Theta_x[:,1], zs=Theta_x[:,2], c='g', marker='^', s=100, label='feasible')
+        ax.scatter(xs=avg[0], ys=avg[1], zs=avg[2], c='r', marker='^', s=300, label='average')
+        plt.legend(loc='upper left')
+        plt.show()
 #########################################################
 
 data = np.load('./arm_joints_feasible_data.npy')
@@ -118,43 +145,35 @@ for i in range(len(X)):
     Y_x = feasible_sets[i]
     Y_x = np.vstack((Y_x, y))
     new_data.append((x, y, Y_x))
+
 var = mvn(mean=np.hstack(([0, 0, 0], avg)), cov=np.diag([100, 100, 100, 20, 20, 20]))
 def prior(vec):
-    return 1
     # return var.pdf(vec)
+    return 1
 def objective(lam):
     return -np.sum([np.log(prob_lam_given_theta(theta, lam, Theta_x, cost, prior)) for (x, theta, Theta_x) in new_data])
-def objective_stable(lam):
-    return -np.sum([prob_lam_given_theta_stable(theta, lam, Theta_x, cost, prior) for (x, theta, Theta_x) in new_data])
-res = minimize(objective_stable, [0, 1, 0, 0, 0, 0], method='Powell', options={'disp': True})
-l = res.x
-# print "weights: " + str(np.array(l[:3]) / np.linalg.norm(l[:3]))
-# print "theta*: " + str(normalize(l[3:]))
-theta_star = normalize(l[3:])
 
-for (x, theta, Theta_x) in new_data:
-    mlest = mle(Theta_x, l, cost, prior)
-    mle_opt = mle(Theta_x, np.hstack((l[:3], avg)), cost, prior)
-    spread1 = (max(Theta_x, key=lambda x: x[0]) - min(Theta_x, key=lambda x: x[0]))[0]
-    spread2 = (max(Theta_x, key=lambda x: x[1]) - min(Theta_x, key=lambda x: x[1]))[1]
-    spread3 = (max(Theta_x, key=lambda x: x[2]) - min(Theta_x, key=lambda x: x[2]))[2]
-    diff1 = np.abs(theta[0] - mlest[0])
-    diff2 = np.abs(theta[1] - mlest[1])
-    diff3 = np.abs(theta[2] - mlest[2])
-    print "Spread Shoulder 1: " + str(spread1)
-    print "Difference Shoulder 1: " + str(diff1)
-    print "Spread Shoulder 2: " + str(spread2)
-    print "Difference Joint 2: " + str(diff2)
-    print "Spread Elbow: " + str(spread3)
-    print "Difference Elbow: " + str(diff3)
-    print
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(xs=mlest[0], ys=mlest[1], zs=mlest[2], c='k', marker='>', s=700, label='mle')
-    ax.scatter(xs=mle_opt[0], ys=mle_opt[1], zs=mle_opt[2], c='y', marker='<', s=700, label='mle from avg')
-    ax.scatter(xs=theta[0], ys=theta[1], zs=theta[2], s=700, label='training')
-    ax.scatter(xs=theta_star[0], ys=theta_star[1], zs=theta_star[2], c='r', s=300, label='optimized')
-    ax.scatter(xs=Theta_x[:,0], ys=Theta_x[:,1], zs=Theta_x[:,2], c='g', marker='^', s=100, label='feasible')
-    ax.scatter(xs=avg[0], ys=avg[1], zs=avg[2], c='r', marker='^', s=300, label='average')
-    plt.legend(loc='upper left')
-    plt.show()
+error1 = 0
+error2 = 0
+error3 = 0
+i = 0
+for sample in new_data:
+    (testX, testTheta, testTheta_x) = sample
+    hold_out_data = []
+    for s in new_data:
+        if s is not sample:
+            hold_out_data.append(s)
+    def objective_stable(lam):
+        return -np.sum([prob_lam_given_theta_stable(theta, lam, Theta_x, cost, prior) for (x, theta, Theta_x) in hold_out_data])
+    res = minimize(objective_stable, [0, 1, 0, 0, 0, 0], method='Powell', options={'disp': True})
+    l = res.x
+    theta_star = normalize(l[3:])
+
+    mlest = mle(testTheta_x, l, cost, prior)
+    error1 += np.abs(mlest[0] - testTheta[0])
+    error2 += np.abs(mlest[1] - testTheta[1])
+    error3 += np.abs(mlest[2] - testTheta[2])
+
+print "Joint 1: " + str(error1 / len(new_data))
+print "Joint 2: " + str(error2 / len(new_data))
+print "Joint 3: " + str(error3 / len(new_data))
