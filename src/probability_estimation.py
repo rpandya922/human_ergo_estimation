@@ -177,4 +177,3 @@ def predictProbs():
     print "Joint 2: " + str(error2 / len(new_data))
     print "Joint 3: " + str(error3 / len(new_data))
 #########################################################
-predictProbs()
