@@ -8,7 +8,7 @@ import probability_estimation as pe
 
 #########################################################
 # CONSTANTS AND FUNCTIONS
-NUM_PARTICLES = 10000
+NUM_PARTICLES = 100000
 h = 0.2
 fig = plt.figure()
 # plt.ion()
@@ -42,6 +42,42 @@ def create_feasible_set(theta, stddev, size):
     f = [np.random.normal(0, stddev, theta.shape) + theta for _ in range(size)]
     f.append(y)
     return np.array(f)
+def filter_with_variance(particles, weights):
+    variances = []
+    indices = []
+    k = 0
+    for (x, theta, Theta_x) in data:
+        for i in range(NUM_PARTICLES):
+            particle = particles[i]
+            w = particle[:3]
+            theta_star = particle[3:]
+            log_likelihood = np.log(weights[i])
+            p, costs = pe.prob_theta_given_lam_stable(theta, theta_star, w, Theta_x, cost)
+            log_likelihood += p - logsumexp(costs)
+            weights[i] = log_likelihood
+        weights /= np.sum(weights)
+        print "reweighted"
+        new_particles = []
+        idxs = np.random.choice(NUM_PARTICLES, size=NUM_PARTICLES, p=weights)
+        for i in range(NUM_PARTICLES):
+            idx = idxs[i]
+            sample = particles[idx]
+            new_particles.append(np.random.normal(sample, h))
+        particles = new_particles
+        weights = [1/NUM_PARTICLES]*NUM_PARTICLES
+        var = np.var(particles, axis=0)
+        variances.append(var)
+        indices.append(k)
+        k += 1
+    variances = np.array(variances)
+    feasible_sizes = np.array(feasible_sizes)
+    for i in range(6):
+        plt.xlabel('iteration')
+        plt.ylabel('variance')
+        plt.plot(indices, variances[:,i])
+        plt.show()
+        plt.savefig("/home/ravi/figures/feasible_vars/feas_far_var" + str(i) + ".png")
+        plt.clf()
 #########################################################
 
 data = np.load('./arm_joints_feasible_data.npy')
@@ -80,12 +116,6 @@ for i in range(NUM_PARTICLES):
     particles.append(lam)
     weights.append(weight)
 
-# show_particles(particles, weights=0.001)
-variances = []
-feasible_sizes = []
-indices = []
-k = 0
-prev = np.var(particles, axis=0)
 for (x, theta, Theta_x) in data:
     for i in range(NUM_PARTICLES):
         particle = particles[i]
@@ -97,29 +127,13 @@ for (x, theta, Theta_x) in data:
         weights[i] = log_likelihood
     weights /= np.sum(weights)
     print "reweighted"
-    show_particles(particles, weights)
+    # show_particles(particles, weights)
     new_particles = []
+    idxs = np.random.choice(NUM_PARTICLES, size=NUM_PARTICLES, p=weights)
     for i in range(NUM_PARTICLES):
-        idx = np.random.choice(NUM_PARTICLES, p=weights)
+        idx = idxs[i]
         sample = particles[idx]
         new_particles.append(np.random.normal(sample, h))
     particles = new_particles
-    weights = [1/NUM_PARTICLES for _ in range(NUM_PARTICLES)]
-    var = np.var(particles, axis=0)
-    # variances.append(var - prev)
-    # prev = var
-    variances.append(var)
-    feasible_sizes.append(len(Theta_x))
-    indices.append(k)
-    k += 1
-variances = np.array(variances)
-feasible_sizes = np.array(feasible_sizes)
-for i in range(6):
-    plt.xlabel('iteration')
-    plt.ylabel('variance')
-    plt.plot(indices, variances[:,i])
-    # plt.show()
-    # plt.savefig("/home/ravi/figures/feasible_vars/feas_far_var" + str(i) + ".png")
-    plt.clf()
+    weights = [1/NUM_PARTICLES]*NUM_PARTICLES
 # show_particles(particles, weights, stay=True)
-# compare(particles)
