@@ -5,14 +5,15 @@ from scipy.misc import logsumexp
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import probability_estimation as pe
+from distribution import ParticleDistribution
 
 #########################################################
 # CONSTANTS AND FUNCTIONS
-NUM_PARTICLES = 100000
+NUM_PARTICLES = 10000
 h = 0.2
 fig = plt.figure()
 # plt.ion()
-def show_particles(particles, weights, stay=False, time=0.05):
+def show_particles(particles, stay=False, time=0.05):
     thetas = np.array(particles)[:,3:]
     ax = fig.add_subplot(111, projection='3d')
     ax.set_xlabel('x')
@@ -25,7 +26,7 @@ def show_particles(particles, weights, stay=False, time=0.05):
         while True:
             plt.pause(time)
     else:
-        ax.scatter(thetas[:,0], thetas[:,1], thetas[:,2], c='g', s=weights*10*NUM_PARTICLES, label='particles', edgecolors='none')
+        ax.scatter(thetas[:,0], thetas[:,1], thetas[:,2], c='g', s=10, label='particles', edgecolors='none')
         plt.legend(loc='upper left')
         plt.pause(time)
 def compare(particles):
@@ -81,24 +82,23 @@ def filter_with_variance(particles, weights):
 #########################################################
 
 data = np.load('./arm_joints_feasible_data.npy')
-full_feasible_sets = np.load("./feasible_sets2.npy")
-feasible_sets = np.load("./feasible_far.npy")
+# full_feasible_sets = np.load("./feasible_sets2.npy")
+# feasible_sets = np.load("./feasible_far.npy")
+feasible_sets = np.load("./feasible_sets2.npy")
 X, ys = pe.preprocess(data)
 avg = np.mean(ys, axis=0)
 
-full_data = []
-for i in range(len(X)):
-    x, y = X[i], pe.normalize(ys[i])
-    rand = np.random.randint(10)
-    Y_x = full_feasible_sets[i]
-    Y_x = np.vstack((Y_x, y))
-    full_data.append((x, y, Y_x))
+# full_data = []
+# for i in range(len(X)):
+#     x, y = X[i], pe.normalize(ys[i])
+#     Y_x = full_feasible_sets[i]
+#     Y_x = np.vstack((Y_x, y))
+#     full_data.append((x, y, Y_x))
 
 data = []
 for i in range(len(X)):
     x, y = X[i], pe.normalize(ys[i])
-    rand = np.random.randint(10)
-    Y_x = [feasible_sets[i][4]]
+    Y_x = feasible_sets[i]
     Y_x = np.vstack((Y_x, y))
     data.append((x, y, Y_x))
 
@@ -116,24 +116,10 @@ for i in range(NUM_PARTICLES):
     particles.append(lam)
     weights.append(weight)
 
+show_particles(particles)
+dist = ParticleDistribution(particles, cost)
 for (x, theta, Theta_x) in data:
-    for i in range(NUM_PARTICLES):
-        particle = particles[i]
-        w = particle[:3]
-        theta_star = particle[3:]
-        log_likelihood = np.log(weights[i])
-        p, costs = pe.prob_theta_given_lam_stable(theta, theta_star, w, Theta_x, cost)
-        log_likelihood += p - logsumexp(costs)
-        weights[i] = log_likelihood
-    weights /= np.sum(weights)
-    print "reweighted"
-    # show_particles(particles, weights)
-    new_particles = []
-    idxs = np.random.choice(NUM_PARTICLES, size=NUM_PARTICLES, p=weights)
-    for i in range(NUM_PARTICLES):
-        idx = idxs[i]
-        sample = particles[idx]
-        new_particles.append(np.random.normal(sample, h))
-    particles = new_particles
-    weights = [1/NUM_PARTICLES]*NUM_PARTICLES
-show_particles(particles, weights, stay=True)
+    dist.resample(theta, Theta_x)
+    print dist.entropy(box_size=5)
+    show_particles(dist.particles)
+show_particles(dist.particles, stay=True)
