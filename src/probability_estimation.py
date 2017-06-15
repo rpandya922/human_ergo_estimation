@@ -39,9 +39,9 @@ def distance_cost(theta, theta_star, w):
     @param w: learned weights for the joints
     @return: the cost for this configuration
     """
-    # l = np.diag(w)
-    return np.sum([np.abs(w[i]) * ((theta[i] - theta_star[i])**2) for i in range(len(w))])
-    # return np.dot(theta - theta_star, np.dot(l, theta - theta_star))
+    l = np.diag(w)
+    # return np.sum([np.abs(w[i]) * ((theta[i] - theta_star[i])**2) for i in range(len(w))])
+    return np.dot(theta - theta_star, np.dot(l, theta - theta_star))
 def rot_cost(theta, theta_star, w):
     c = 0
     t_norm = normalize(theta)

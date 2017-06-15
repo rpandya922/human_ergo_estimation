@@ -136,4 +136,4 @@ for (x, theta, Theta_x) in data:
         new_particles.append(np.random.normal(sample, h))
     particles = new_particles
     weights = [1/NUM_PARTICLES]*NUM_PARTICLES
-# show_particles(particles, weights, stay=True)
+show_particles(particles, weights, stay=True)
