@@ -7,7 +7,7 @@ from scipy.misc import logsumexp
 
 #########################################################
 # CONSTANTS AND FUNCTIONS
-ALPHA = 0.1
+# ALPHA = 0.1
 feasible = []
 def normalize(angles):
     s = []
@@ -53,19 +53,51 @@ def rot_cost(theta, theta_star, w):
     return c
 def abs_cost(theta, theta_star, w):
     return np.sum([np.abs(w[i]) * np.abs(theta[i] - theta_star[i]) for i in range(len(w))])
-def prob_theta_given_lam_stable(theta, theta_star, w, Theta_x, cost):
+def prob_theta_given_lam_stable(theta, lam, Theta_x, cost):
+    w = lam[:3]
+    theta_star = lam[3:]
+    # ALPHA = np.linalg.norm(w)
+    p = -cost(theta, theta_star, w)
+    costs = []
+    for theta_prime in Theta_x:
+        costs.append(-cost(theta_prime, theta_star, w))
+    return np.exp(p - logsumexp(costs))
+def prob_theta_given_lam_stable2(theta, lam, Theta_x, cost, ALPHA):
+    w = lam[:3]
+    theta_star = lam[3:]
     p = -ALPHA * cost(theta, theta_star, w)
     costs = []
     for theta_prime in Theta_x:
         costs.append(-ALPHA * cost(theta_prime, theta_star, w))
-    return p, costs
+    return np.exp(p - logsumexp(costs))
+
+def prob_lam_helper(theta, theta_star, w, Theta_x, cost):
+    p = -cost(theta, theta_star, w)
+    costs = []
+    for theta_prime in Theta_x:
+        costs.append(-cost(theta_prime, theta_star, w))
+    return p - logsumexp(costs)
 def prob_lam_given_theta_stable(theta, lam, Theta_x, cost, prior):
-    w = np.array(lam[:3]) / np.linalg.norm(lam[:3])
+    w = np.array(lam[:3]) #/ np.linalg.norm(lam[:3])
     theta_star = lam[3:]
-    p, costs = prob_theta_given_lam_stable(theta, theta_star, w, Theta_x, cost)
+    # ALPHA = np.linalg.norm(w)
+    p = prob_lam_helper(theta, theta_star, w, Theta_x, cost)
     prior_cost = np.log(prior(lam))
-    return p - logsumexp(costs) + prior_cost
+    return np.exp(p + prior_cost)
 def prob_theta_given_lam(theta, theta_star, w, Theta_x, cost):
+    """
+    Computes the probability of some joint angles given their weights
+
+    @param theta: the joint angles to evaluate
+    @param theta_star: the optimal/nominal joint configuration
+    @param w: weights for the joints
+    @param Theta_x: the set of all feasible joint angles for this object
+    @param cost: a function which takes three paramters: y, y_star and lam to compute y's cost
+    @return: the probability of y given lam
+    """
+    p = np.exp(-ALPHA * cost(theta, theta_star, w))
+    return p / np.sum([np.exp(-ALPHA * cost(theta_prime, theta_star, w)) for theta_prime in Theta_x])
+def prob_theta_given_lam2(theta, theta_star, w, Theta_x, cost, ALPHA):
     """
     Computes the probability of some joint angles given their weights
 
@@ -93,7 +125,7 @@ def prob_lam_given_theta(theta, lam, Theta_x, cost, prior):
     theta_star = lam[3:]
     return prob_theta_given_lam(theta, theta_star, w, Theta_x, cost) * prior(lam)
 def mle(Theta_x, lam, cost, prior):
-    return max(Theta_x, key=lambda t: prob_lam_given_theta(t, lam, Theta_x, cost, prior))
+    return max(Theta_x, key=lambda t: prob_lam_given_theta_stable(t, lam, Theta_x, cost, prior))
 def printProb(theta, lam, Theta_x, cost, prior):
     w = np.array(lam[:3]) / np.linalg.norm(lam[:3])
     theta_star = lam[3:]

@@ -10,18 +10,21 @@ class ParticleDistribution():
         self.particles = particles
         self.weights = weights
         self.cost = cost
-    def resample(self, theta, Theta_x, size=None):
+    def reweight(self, theta, Theta_x, size=None):
         if size is None:
             size = self.NUM_PARTICLES
+        weights = np.array(self.weights)
         for i in range(self.NUM_PARTICLES):
             particle = self.particles[i]
-            w = particle[:3]
-            theta_star = particle[3:]
-            log_likelihood = np.log(self.weights[i])
-            p, costs = pe.prob_theta_given_lam_stable(theta, theta_star, w, Theta_x, self.cost)
-            log_likelihood += p - logsumexp(costs)
-            self.weights[i] = log_likelihood
-        self.weights /= np.sum(self.weights)
+            weights[i] *= pe.prob_theta_given_lam_stable(theta, particle, Theta_x, self.cost)
+        try:
+            w = weights / np.sum(weights)
+        except:
+            print "Exception: " + str(np.sum(weights))
+        return weights / np.sum(weights)
+    def resample(self, size=None):
+        if size is None:
+            size = self.NUM_PARTICLES
         new_particles = []
         idxs = np.random.choice(self.NUM_PARTICLES, size=size, p=self.weights)
         for i in range(size):
@@ -34,10 +37,30 @@ class ParticleDistribution():
     def entropy(self, box_size=0.001):
         discretized = np.floor(np.array(self.particles) / box_size) * box_size
         counts = {}
-        for particle in discretized:
+        for i in range(self.NUM_PARTICLES):
+            particle = discretized[i]
+            weight = self.weights[i]
             try:
-                counts[tuple(particle)] += 1
+                counts[tuple(particle)] += weight
             except:
-                counts[tuple(particle)] = 1
-        vals = np.array(counts.values())
+                counts[tuple(particle)] = weight
+        vals = np.array(counts.values()) / np.sum(counts.values())
         return -np.sum(vals * np.log2(vals / len(discretized)))
+    def info_gain(self, Theta_x, box_size):
+        new_weights = np.zeros(self.NUM_PARTICLES)
+        for i in range(self.NUM_PARTICLES):
+            particle = self.particles[i]
+            weight = self.weights[i]
+            # for theta in Theta_x:
+            #     weights = self.reweight(theta, Theta_x)
+            #     weights *= weight * pe.prob_theta_given_lam_stable2(theta, particle, Theta_x, self.cost, 100)
+            #     new_weights += weights
+            theta = pe.mle(Theta_x, particle, self.cost, lambda x: 1)
+            weights = self.reweight(theta, Theta_x)
+            weights *= weight
+            new_weights += weights
+        dist = ParticleDistribution(self.particles, new_weights, self.cost)
+        # print self.weights
+        # print new_weights
+        return dist.entropy(box_size=box_size) - self.entropy(box_size=box_size)
+
