@@ -1,4 +1,5 @@
 from __future__ import division
+import seaborn
 import numpy as np
 from scipy.optimize import minimize
 from scipy.misc import logsumexp
@@ -139,19 +140,29 @@ for i in range(NUM_PARTICLES):
 weights = np.array(weights) / np.sum(weights)
 
 dist = ParticleDistribution(particles, weights, cost)
+dist2 = ParticleDistribution(particles, weights, cost)
 show_particles(particles, entropy=dist.entropy(num_boxes, axis_ranges))
 expected_info = []
+expected_info2 = []
 actual_info = []
+actual_info2 = []
+(x1, theta1, Theta_x1) = data[0]
 for (x, theta, Theta_x) in data:
     expected = dist.info_gain(Theta_x, num_boxes, axis_ranges)
     expected_info.append(expected)
+    expected2 = dist.info_gain(Theta_x1, num_boxes, axis_ranges)
+    expected_info2.append(expected2)
     print "Expected info gain: " + str(expected)
     entropy = dist.entropy(num_boxes, axis_ranges)
     # print entropy
-    dist.weights = dist.reweight(theta, Theta_x)
+    dist.weights = dist.reweight(theta1, Theta_x1)
+    dist2.weights = dist.reweight(theta, Theta_x)
+    dist2.resample()
     print "reweighted"
     dist.resample()
     actual = dist.entropy(num_boxes, axis_ranges) - entropy
+    actual_info2.append(dist2.entropy(num_boxes, axis_ranges) - entropy)
+    dist2 = ParticleDistribution(dist.particles, dist.weights, dist.cost)
     print "Actual info gain: " + str(actual)
     print
     actual_info.append(actual)
@@ -176,7 +187,9 @@ fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.set_xlabel('iteration')
 ax.set_ylabel('information gain')
-ax.plot(range(len(data)), expected_info, label='expected')
-ax.plot(range(len(data)), actual_info, label='actual')
+ax.plot(range(len(data)), expected_info, label='expected new sample')
+ax.plot(range(len(data)), expected_info2, label='expected same sample')
+ax.plot(range(len(data)), actual_info, label='actual same sample')
+ax.plot(range(len(data)), actual_info2, label='actual new sample')
 plt.legend(loc='upper left')
 plt.show()
