@@ -10,6 +10,7 @@ from distribution import ParticleDistribution
 
 #########################################################
 # CONSTANTS AND FUNCTIONS
+DOF = 3
 NUM_PARTICLES = 20
 h = 0.2
 weight_widths = 10
@@ -70,8 +71,8 @@ def filter_with_variance(particles, weights):
     for (x, theta, Theta_x) in data:
         for i in range(NUM_PARTICLES):
             particle = particles[i]
-            w = particle[:3]
-            theta_star = particle[3:]
+            w = particle[:DOF]
+            theta_star = particle[DOF:]
             log_likelihood = np.log(weights[i])
             p, costs = pe.prob_theta_given_lam_stable(theta, theta_star, w, Theta_x, cost)
             log_likelihood += p - logsumexp(costs)
@@ -131,10 +132,10 @@ def prior(vec):
 particles = []
 weights = []
 for i in range(NUM_PARTICLES):
-    lam = np.random.uniform(-weight_widths, weight_widths, (3,))
-    lam = np.hstack((lam, np.random.uniform(-theta_widths, theta_widths, (3,))))
+    lam = np.random.uniform(-weight_widths, weight_widths, (DOF,))
+    lam = np.hstack((lam, np.random.uniform(-theta_widths, theta_widths, (DOF,))))
     weight = 1
-    theta = lam[3:]
+    theta = lam[DOF:]
     particles.append(lam)
     weights.append(weight)
 weights = np.array(weights) / np.sum(weights)
@@ -164,16 +165,15 @@ for (x, theta, Theta_x) in data:
     actual_info2.append(dist2.entropy(num_boxes, axis_ranges) - entropy)
     dist2 = ParticleDistribution(dist.particles, dist.weights, dist.cost)
     print "Actual info gain: " + str(actual)
-    print
     actual_info.append(actual)
     #
     # particles = []
     # weights = []
     # for i in range(NUM_PARTICLES):
-    #     lam = np.random.uniform(-weight_widths, weight_widths, (3,))
-    #     lam = np.hstack((lam, np.random.uniform(-theta_widths, theta_widths, (3,))))
+    #     lam = np.random.uniform(-weight_widths, weight_widths, (DOF,))
+    #     lam = np.hstack((lam, np.random.uniform(-theta_widths, theta_widths, (DOF,))))
     #     weight = 1
-    #     theta = lam[3:]
+    #     theta = lam[DOF:]
     #     particles.append(lam)
     #     weights.append(weight)
     # weights = np.array(weights) / np.sum(weights)
@@ -181,8 +181,22 @@ for (x, theta, Theta_x) in data:
     # dist = ParticleDistribution(particles, weights, cost)
     entropy = dist.entropy(num_boxes, axis_ranges)
     print "Entropy: " + str(entropy)
+    print
     show_particles(dist.particles, time=0.05, entropy=entropy)
 # show_particles(dist.particles, stay=True, entropy=dist.entropy(num_boxes, axis_ranges))
+
+mean = np.mean(actual_info)
+tss = np.sum(np.square(np.array(actual_info) - mean))
+rss = np.sum(np.square(np.array(actual_info) - np.array(expected_info2)))
+r_squared = 1 - rss / tss
+print "R^2 same: "  + str(r_squared)
+
+mean = np.mean(actual_info2)
+tss = np.sum(np.square(np.array(actual_info2) - mean))
+rss = np.sum(np.square(np.array(actual_info2) - np.array(expected_info)))
+r_squared = 1 - rss / tss
+print "R^2 new: "  + str(r_squared)
+
 fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.set_xlabel('iteration')
