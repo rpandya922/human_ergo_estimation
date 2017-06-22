@@ -9,26 +9,43 @@ from distribution import ParticleDistribution
 
 #########################################################
 # CONSTANTS AND FUNCTIONS
-NUM_PARTICLES = 30
+NUM_PARTICLES = 20
 h = 0.2
-box_size = 3
+weight_widths = 10
+theta_widths = 3.14
+num_boxes = 5
+axis_ranges = 2 * np.array([weight_widths, weight_widths, weight_widths, theta_widths, theta_widths, theta_widths])
 fig = plt.figure()
+fig2 = plt.figure()
 # plt.ion()
 def show_particles(particles, stay=False, time=0.05, entropy='Plot'):
-    thetas = np.array(particles)[:,3:]
+    thetas = np.array(particles)
     ax = fig.add_subplot(111, projection='3d')
-    ax.set_xlabel('theta1')
-    ax.set_ylabel('theta2')
-    ax.set_zlabel('theta3')
+    ax.set_xlabel('w1')
+    ax.set_ylabel('w2')
+    ax.set_zlabel('w3')
     ax.set_title(entropy)
+    ax.set_xlim((-10,10))
+    ax.set_ylim((-10,10))
+    ax.set_zlim((-10,10))
+    ax2 = fig2.add_subplot(111, projection='3d')
+    ax2.set_xlabel('theta1')
+    ax2.set_ylabel('theta2')
+    ax2.set_zlabel('theta3')
+    ax2.set_xlim((-3.14,3.14))
+    ax2.set_ylim((-3.14,3.14))
+    ax2.set_zlim((-3.14,3.14))
+    ax2.set_title(entropy)
     if stay:
         print "Staying"
         ax.scatter(thetas[:,0], thetas[:,1], thetas[:,2], c='g', s=10, label='particles', edgecolors='none')
+        ax2.scatter(thetas[:,3], thetas[:,4], thetas[:,5], c='g', s=10, label='particles', edgecolors='none')
         plt.legend(loc='upper left')
         while True:
             plt.pause(time)
     else:
         ax.scatter(thetas[:,0], thetas[:,1], thetas[:,2], c='g', s=10, label='particles', edgecolors='none')
+        ax2.scatter(thetas[:,3], thetas[:,4], thetas[:,5], c='g', s=10, label='particles', edgecolors='none')
         plt.legend(loc='upper left')
         plt.pause(time)
 def compare(particles):
@@ -86,6 +103,7 @@ def filter_with_variance(particles, weights):
 data = np.load('./arm_joints_feasible_data.npy')
 # full_feasible_sets = np.load("./feasible_sets2.npy")
 # feasible_sets = np.load("./feasible_far.npy")
+# feasible_sets = np.load("./feasible_close.npy")
 feasible_sets = np.load("./feasible_sets2.npy")
 X, ys = pe.preprocess(data)
 avg = np.mean(ys, axis=0)
@@ -112,8 +130,8 @@ def prior(vec):
 particles = []
 weights = []
 for i in range(NUM_PARTICLES):
-    lam = np.random.uniform(-10, 10, (3,))
-    lam = np.hstack((lam, np.random.uniform(-3.14, 3.14, (3,))))
+    lam = np.random.uniform(-weight_widths, weight_widths, (3,))
+    lam = np.hstack((lam, np.random.uniform(-theta_widths, theta_widths, (3,))))
     weight = 1
     theta = lam[3:]
     particles.append(lam)
@@ -121,25 +139,39 @@ for i in range(NUM_PARTICLES):
 weights = np.array(weights) / np.sum(weights)
 
 dist = ParticleDistribution(particles, weights, cost)
-show_particles(particles, entropy=dist.entropy(box_size))
+show_particles(particles, entropy=dist.entropy(num_boxes, axis_ranges))
 expected_info = []
 actual_info = []
 for (x, theta, Theta_x) in data:
-    expected = dist.info_gain(Theta_x, box_size)
+    expected = dist.info_gain(Theta_x, num_boxes, axis_ranges)
     expected_info.append(expected)
     print "Expected info gain: " + str(expected)
-    entropy = dist.entropy(box_size)
-    print entropy
+    entropy = dist.entropy(num_boxes, axis_ranges)
+    # print entropy
     dist.weights = dist.reweight(theta, Theta_x)
     print "reweighted"
     dist.resample()
-    actual = dist.entropy(box_size) - entropy
+    actual = dist.entropy(num_boxes, axis_ranges) - entropy
     print "Actual info gain: " + str(actual)
     print
     actual_info.append(actual)
-    entropy = dist.entropy(box_size)
+    #
+    # particles = []
+    # weights = []
+    # for i in range(NUM_PARTICLES):
+    #     lam = np.random.uniform(-weight_widths, weight_widths, (3,))
+    #     lam = np.hstack((lam, np.random.uniform(-theta_widths, theta_widths, (3,))))
+    #     weight = 1
+    #     theta = lam[3:]
+    #     particles.append(lam)
+    #     weights.append(weight)
+    # weights = np.array(weights) / np.sum(weights)
+    #
+    # dist = ParticleDistribution(particles, weights, cost)
+    entropy = dist.entropy(num_boxes, axis_ranges)
+    print "Entropy: " + str(entropy)
     show_particles(dist.particles, time=0.05, entropy=entropy)
-# show_particles(dist.particles, stay=True, entropy=dist.entropy(box_size))
+# show_particles(dist.particles, stay=True, entropy=dist.entropy(num_boxes, axis_ranges))
 fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.set_xlabel('iteration')
