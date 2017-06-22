@@ -8,6 +8,7 @@ from scipy.misc import logsumexp
 #########################################################
 # CONSTANTS AND FUNCTIONS
 # ALPHA = 0.1
+DOF = 3
 feasible = []
 def normalize(angles):
     s = []
@@ -54,8 +55,8 @@ def rot_cost(theta, theta_star, w):
 def abs_cost(theta, theta_star, w):
     return np.sum([np.abs(w[i]) * np.abs(theta[i] - theta_star[i]) for i in range(len(w))])
 def prob_theta_given_lam_stable(theta, lam, Theta_x, cost):
-    w = lam[:3]
-    theta_star = lam[3:]
+    w = lam[:DOF]
+    theta_star = lam[DOF:]
     # ALPHA = np.linalg.norm(w)
     p = -cost(theta, theta_star, w)
     costs = []
@@ -63,8 +64,8 @@ def prob_theta_given_lam_stable(theta, lam, Theta_x, cost):
         costs.append(-cost(theta_prime, theta_star, w))
     return np.exp(p - logsumexp(costs))
 def prob_theta_given_lam_stable2(theta, lam, Theta_x, cost, ALPHA):
-    w = lam[:3]
-    theta_star = lam[3:]
+    w = lam[:DOF]
+    theta_star = lam[DOF:]
     p = -ALPHA * cost(theta, theta_star, w)
     costs = []
     for theta_prime in Theta_x:
@@ -78,8 +79,8 @@ def prob_lam_helper(theta, theta_star, w, Theta_x, cost):
         costs.append(-cost(theta_prime, theta_star, w))
     return p - logsumexp(costs)
 def prob_lam_given_theta_stable(theta, lam, Theta_x, cost, prior):
-    w = np.array(lam[:3]) #/ np.linalg.norm(lam[:3])
-    theta_star = lam[3:]
+    w = np.array(lam[:DOF]) #/ np.linalg.norm(lam[:3])
+    theta_star = lam[DOF:]
     # ALPHA = np.linalg.norm(w)
     p = prob_lam_helper(theta, theta_star, w, Theta_x, cost)
     prior_cost = np.log(prior(lam))
@@ -121,14 +122,14 @@ def prob_lam_given_theta(theta, lam, Theta_x, cost, prior):
     @param prior: a function of the prior distribution over lambda
     @return: value proportional to the probability of lambda given y
     """
-    w = np.array(lam[:3]) / np.linalg.norm(lam[:3])
-    theta_star = lam[3:]
+    w = np.array(lam[:DOF]) / np.linalg.norm(lam[:DOF])
+    theta_star = lam[DOF:]
     return prob_theta_given_lam(theta, theta_star, w, Theta_x, cost) * prior(lam)
 def mle(Theta_x, lam, cost, prior):
     return max(Theta_x, key=lambda t: prob_lam_given_theta_stable(t, lam, Theta_x, cost, prior))
 def printProb(theta, lam, Theta_x, cost, prior):
-    w = np.array(lam[:3]) / np.linalg.norm(lam[:3])
-    theta_star = lam[3:]
+    w = np.array(lam[:DOF]) / np.linalg.norm(lam[:DOF])
+    theta_star = lam[DOF:]
     p = np.exp(-ALPHA * cost(theta, theta_star, w))
     print "Numerator: " + str(p)
     denom = np.sum([np.exp(-ALPHA * cost(theta_prime, theta_star, w)) for theta_prime in Theta_x])
@@ -137,7 +138,7 @@ def printProb(theta, lam, Theta_x, cost, prior):
 def print_spread_diff(new_data, l, theta_star, avg):
     for (x, theta, Theta_x) in new_data:
         mlest = mle(Theta_x, l, cost, prior)
-        mle_opt = mle(Theta_x, np.hstack((l[:3], avg)), cost, prior)
+        mle_opt = mle(Theta_x, np.hstack((l[:DOF], avg)), cost, prior)
         spread1 = (max(Theta_x, key=lambda x: x[0]) - min(Theta_x, key=lambda x: x[0]))[0]
         spread2 = (max(Theta_x, key=lambda x: x[1]) - min(Theta_x, key=lambda x: x[1]))[1]
         spread3 = (max(Theta_x, key=lambda x: x[2]) - min(Theta_x, key=lambda x: x[2]))[2]
@@ -198,7 +199,7 @@ def predictProbs():
             return -np.sum([prob_lam_given_theta_stable(theta, lam, Theta_x, cost, prior) for (x, theta, Theta_x) in hold_out_data])
         res = minimize(objective_stable, [0, 1, 0, 0, 0, 0], method='Powell', options={'disp': True})
         l = res.x
-        theta_star = normalize(l[3:])
+        theta_star = normalize(l[DOF:])
 
         mlest = mle(testTheta_x, l, cost, prior)
         error1 += np.abs(mlest[0] - testTheta[0])
