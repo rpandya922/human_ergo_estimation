@@ -65,7 +65,7 @@ class ParticleDistribution():
                 d = ParticleDistribution(self.particles, weights, self.cost)
                 d.resample()
                 ent = d.entropy(num_boxes, axis_ranges)
-                avg_ent += weight * pe.prob_theta_given_lam_stable2(theta, particle, Theta_x, self.cost, 0) * ent
+                avg_ent += weight * pe.prob_theta_given_lam_stable2(theta, particle, Theta_x, self.cost, 1) * ent
                 # weights *= weight * pe.prob_theta_given_lam_stable2(theta, particle, Theta_x, self.cost, 1)
                 # new_weights += weights
             # theta = pe.mle(Theta_x, particle, self.cost, lambda x: 1)
