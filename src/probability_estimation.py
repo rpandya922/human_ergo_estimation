@@ -8,7 +8,7 @@ from scipy.misc import logsumexp
 #########################################################
 # CONSTANTS AND FUNCTIONS
 # ALPHA = 0.1
-DOF = 4
+DOF = 7
 feasible = []
 def normalize(angles):
     s = []
