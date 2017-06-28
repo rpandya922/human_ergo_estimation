@@ -4,14 +4,19 @@ import seaborn
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.stats import gamma
+from scipy.stats import norm
 import probability_estimation as pe
 #######################################################
 # CONSTANTS/FUNCTIONS
 DOF = 7
+ALPHA = 0.5
 true = np.array([0, 0, 0, 0, 0, 0, 0])
-# true = np.array([0, 0])
+# true = np.array([0])
 sample_precision = np.identity(DOF)
 true_weights = np.array([1, 1, 1, 1, 1, 1, 1])
+# true_weights = np.array([1])
+def cost(theta, theta_star, w):
+    return pe.distance_cost(theta, theta_star, w)
 def plot_helper(feasible, mean, true):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -57,36 +62,84 @@ def estimate_mean(data):
     return mean
 def plot_gamma(alpha, beta):
     scale = 1 / beta
-    x = np.linspace(0, 10, 2000)
+    x = np.linspace(0, 15, 2000)
     y = gamma.pdf(x, a=alpha, scale=scale)
     plt.plot(x, y, label="a: " + str(alpha) + ", beta: " + str(beta))
     plt.title(str((alpha - 1) / beta))
     plt.legend(loc='upper left')
     plt.show()
+    return (alpha - 1) / beta
+def estimate_weights(data):
+    alphas = np.ones(DOF)
+    betas = np.ones(DOF)
+    for (thetas, feasible) in data:
+        alphas += len(thetas) / 2.0
+        betas += np.sum(np.square(thetas - true), axis=0) / 2.0
+    w = []
+    for i in range(DOF):
+        w.append((alphas[i] - 1) / betas[i])
+    return w
+def plot_distributions(mu, tau, alpha, beta):
+    stddev = np.sqrt(1 / tau)
+    scale = 1 / beta
+    x = np.linspace(-5, 5, 2000)
+    y_gamma = gamma.pdf(x, a=alpha, scale=scale)
+    y_normal = norm.pdf(x, loc=mu, scale=stddev)
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+    ax1.plot(x, y_gamma, label="a: " + str(alpha) + ", beta: " + str(beta))
+    plt.title(str((alpha - 1) / beta))
+    plt.legend(loc='upper left')
+
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot(111)
+    ax2.plot(x, y_normal, label="mean: " + str(mu) + ", stddev: " + str(stddev))
+    plt.legend(loc='upper left')
+
+    plt.show()
 #######################################################
 data = np.load("./random_training_data.npy")
-# mean = estimate_mean(data)
-# plot_data(data, mean)
-alphas = np.ones(DOF)
-betas = np.ones(DOF)
-# alpha = 1
-# beta = 1
-# feasible = np.random.normal(0, 3, size=(1000, 5))
-# variance = 0
-# for row in feasible:
-#     variance += np.sum(np.square(row))
-#     alpha += len(row) / 2
-#     beta += np.sum(np.square(row)) / 2
-# variance /= 5 * len(feasible)
-# print variance
-# plot_gamma(alpha, beta)
-variance = 0
+
+means = np.zeros(DOF)
+taus = np.ones(DOF) * 0.001
+alphas = np.ones(DOF) * 2
+betas = np.ones(DOF) / 2
+
 for (thetas, feasible) in data:
-    print thetas
-    variance += np.sum(np.square(thetas))
-    alphas += len(thetas) / 2
-    betas += np.sum(np.square(thetas - true), axis=0) / 2
-variance /= len(thetas) * len(data)
-print variance
+    K = len(thetas)
+    mean_theta = np.mean(thetas, axis=0)
+    new_means = (np.multiply(taus, means) + (K * mean_theta)) / (taus + K)
+    new_taus = taus + K
+    new_alphas = alphas + (K / 2.0)
+    new_betas = betas + (np.sum(np.square(thetas - mean_theta), axis=0) / 2) + \
+    np.multiply((K * taus) / (taus + K), np.square(mean_theta - means) / 2.0)
+
+    means = new_means
+    taus = new_taus
+    alphas = new_alphas
+    betas = new_betas
+w = []
+theta_star = []
 for i in range(DOF):
-    plot_gamma(alphas[i], betas[i])
+    print "Mean: " + str(means[i])
+    print "Weight: " + str((alphas[i] - 1) / betas[i])
+    print
+    w.append((alphas[i] - 1) / betas[i])
+    theta_star.append(means[i])
+    # plot_distributions(means[i], taus[i], alphas[i], betas[i])
+
+likelihood1 = 0
+likelihood2 = 0
+lam1 = np.hstack((w, theta_star))
+lam2 = np.hstack((true_weights, true))
+for (thetas, feasible) in data:
+    denom1 = pe.prob_stable2_denom(feasible, lam1, cost, ALPHA)
+    denom2 = pe.prob_stable2_denom(feasible, lam2, cost, ALPHA)
+    for theta in thetas:
+        likelihood1 += pe.prob_stable2_num(theta, lam1, cost, ALPHA) - denom1
+        likelihood2 += pe.prob_stable2_num(theta, lam2, cost, ALPHA) - denom2
+print "Computed weights negative log-likelihood: " + str(-likelihood1)
+print "Real weights negative log-likelihood: " + str(-likelihood2)
+
+# for i in range(DOF):
+#     plot_distributions(means[i], taus[i], alphas[i], betas[i])

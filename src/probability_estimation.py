@@ -71,6 +71,18 @@ def prob_theta_given_lam_stable2(theta, lam, Theta_x, cost, ALPHA):
     for theta_prime in Theta_x:
         costs.append(-ALPHA * cost(theta_prime, theta_star, w))
     return np.exp(p - logsumexp(costs))
+def prob_stable2_num(theta, lam, cost, ALPHA):
+    w = lam[:DOF]
+    theta_star = lam[DOF:]
+    p = -ALPHA * cost(theta, theta_star, w)
+    return p
+def prob_stable2_denom(Theta_x, lam, cost, ALPHA):
+    w = lam[:DOF]
+    theta_star = lam[DOF:]
+    costs = []
+    for theta_prime in Theta_x:
+        costs.append(-ALPHA * cost(theta_prime, theta_star, w))
+    return logsumexp(costs)
 def log_likelihood_theta_given_lam(theta, lam, Theta_x, cost):
     w = lam[:DOF]
     theta_star = lam[DOF:]

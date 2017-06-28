@@ -7,19 +7,26 @@ from numpy.random import multivariate_normal as mvn
 from sklearn.neighbors import NearestNeighbors
 
 ############################################################
-# CONS7ANTS/FUNCTIONS
+# CONSTANTS/FUNCTIONS
 DOF = 7
 ALPHA = 0.5
 K = 5
 FEASIBLE_SIZE = 5000
-lam = np.array([1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 0, 0, 0])
-# lam = np.array([1, 0])
+lam = np.array([5, 5, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0])
 training_data_size = 500
+f = np.load("./test_results_1.npz")
+handle_data = f['human_handoff_ik_solutions'].item()['Mug handle']
 
 def cost(theta, theta_star, w):
     return pe.distance_cost(theta, theta_star, w)
-def get_feasible_set():
-    feasible = (np.random.rand(40, DOF) * 10) - 5
+def get_feasible_set(data, pose):
+    sets_list = data[:,pose]
+    feasible = []
+    for s in sets_list:
+        feasible.extend(s)
+    feasible = np.array(feasible)
+    if len(feasible) == 0:
+        return None
     return feasible
 def get_neighbors_distances(feasible):
     nbrs = NearestNeighbors(n_neighbors=2, algorithm='kd_tree').fit(feasible)
@@ -32,10 +39,10 @@ def get_distribution(feasible, lam, cost, ALPHA):
 def create_sample(feasible, probs):
     idxs = list(np.random.choice(len(feasible), p=probs, size=K))
     return (feasible[idxs], feasible)
-def preprocess_feasible():
+def preprocess_feasible(data):
     new_data = []
-    for i in range(500):
-        feasible = get_feasible_set()
+    for i in range(data.shape[1]):
+        feasible = get_feasible_set(data, i)
         if feasible is None or len(feasible) <= 3:
             continue
         nbrs, max_dist = get_neighbors_distances(feasible)
@@ -52,18 +59,12 @@ def preprocess_feasible():
                 if dist <= max_dist:
                     new_feas.append(samples[k])
                     l += 1
+        if i % 50 == 0:
+            print i
         new_data.append(np.array(new_feas))
     return new_data
-def plot_gamma(alpha, beta):
-    scale = 1 / beta
-    x = np.linspace(0, 10, 2000)
-    y = gamma.pdf(x, a=alpha, scale=scale)
-    plt.plot(x, y, label="a: " + str(alpha) + ", beta: " + str(beta))
-    plt.title(str((alpha - 1) / beta))
-    plt.legend(loc='upper left')
-    plt.show()
 ##############################################################
-data = np.array(preprocess_feasible())
+data = np.array(preprocess_feasible(handle_data))
 print "preprocessed"
 training_data = []
 idxs = np.random.choice(len(data), size=training_data_size)
@@ -72,4 +73,4 @@ for i in range(training_data_size):
     feasible = data[idx]
     probs = get_distribution(feasible, lam, cost, ALPHA)
     training_data.append(create_sample(feasible, probs))
-np.save("random_training_data", training_data)
+np.save("sim_k_training_data2", training_data)
