@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 import probability_estimation as pe
 from numpy.random import multivariate_normal as mvn
 from sklearn.neighbors import NearestNeighbors
-from sklearn.neighbors import KernelDensity as kde
+from scipy.stats import gaussian_kde as kde
 ############################################################
 # CONSTANTS/FUNCTIONS
 DOF = 7
 ALPHA = 0.5
-K = 5
-FEASIBLE_SIZE = 500
-lam = np.array([1, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5])
+K = 2
+FEASIBLE_SIZE = 5000
+lam = np.array([1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0])
 training_data_size = 500
 # f = np.load("./test_results_1.npz")
 # handle_data = f['human_handoff_ik_solutions'].item()['Mug handle']
@@ -69,10 +69,20 @@ def preprocess_feasible(data):
 def preprocess_feasible2(data):
     new_data = []
     for i in range(data.shape[1]):
-        feasible = np.array(get_feasible_set(data, i+1))
+        feasible = np.array(get_feasible_set(data, i))
+        if feasible is None or len(feasible) <= 3:
+            print "skipped"
+            continue
+        weights = 1 / kde(feasible.T).evaluate(feasible.T)
+        weights /= np.sum(weights)
+        uniform_feasible = feasible[np.random.choice(len(feasible), p=weights, size=FEASIBLE_SIZE)]
+        new_data.append(uniform_feasible)
+        if i % 50 == 0:
+            print i
+    return new_data
 ##############################################################
 # data = np.array(preprocess_feasible(handle_data))
-data = np.array(preprocess_feasible(np.load('./full_sim_dataset.npy')))
+data = np.array(preprocess_feasible2(np.load('./full_sim_dataset.npy')))
 print "preprocessed"
 training_data = []
 idxs = np.random.choice(len(data), size=training_data_size)
@@ -81,4 +91,4 @@ for i in range(training_data_size):
     feasible = data[idx]
     probs = get_distribution(feasible, lam, cost, ALPHA)
     training_data.append(create_sample(feasible, probs))
-np.save("full_sim_k_training_data", training_data)
+np.save("full_sim_k_training_data_mean0_k2", training_data)

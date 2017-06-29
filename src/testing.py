@@ -12,7 +12,7 @@ DOF = 7
 ALPHA = 0.5
 K = 5
 FEASIBLE_SIZE = 5000
-lam = np.array([1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 0, 0, 0])
+lam = np.array([0.5, 0.25, 0.75, 2, 1, 1, 1, 2, 2, 2, 2, 0, 0, 0])
 # lam = np.array([1, 0])
 training_data_size = 500
 
@@ -72,4 +72,4 @@ for i in range(training_data_size):
     feasible = data[idx]
     probs = get_distribution(feasible, lam, cost, ALPHA)
     training_data.append(create_sample(feasible, probs))
-np.save("random_training_data", training_data)
+np.save("random_training_data_k5", training_data)

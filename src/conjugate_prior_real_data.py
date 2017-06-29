@@ -11,12 +11,10 @@ import mpl_toolkits.axisartist as AA
 import time
 #######################################################
 # CONSTANTS/FUNCTIONS
-DOF = 7
+DOF = 3
 ALPHA = 0.5
-true = np.array([2, 2, 2, 2, 0, 0, 0])
 # true = np.array([0])
 sample_precision = np.identity(DOF)
-true_weights = np.array([0.5, 0.25, 0.75, 2, 1, 1, 1])
 # true_weights = np.array([1])
 def cost(theta, theta_star, w):
     return pe.distance_cost(theta, theta_star, w)
@@ -100,18 +98,13 @@ def plot_distributions(mu, tau, alpha, beta):
     plt.legend(loc='upper left')
 
     plt.show()
-def plot_helper3(ax, chosen, feasible, mean, weight, true_mean, true_weight):
+def plot_helper3(ax, chosen, feasible, mean, weight):
     stddev = 1 / np.sqrt(weight)
-    true_stddev = 1 / np.sqrt(true_weight)
 
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111)
     ax.set_xlim((-5, 5))
     x = np.linspace(-5, 5, 2000)
     y = norm.pdf(x, loc=mean, scale=stddev)
-    y_true = norm.pdf(x, loc=true_mean, scale=true_stddev)
     ax.plot(x, y, label='calculated')
-    ax.plot(x, y_true, label='true')
     ax.hist(feasible, normed=True, label='feasible')
     ax.hist(chosen, normed=True, fc=(0.3, 0.2, 1, 0.5), label='chosen')
     ax.legend(loc='upper left')
@@ -119,7 +112,7 @@ def plot_data2(data, mean, weights):
     feasible_full = []
     chosen_full = []
     fig = plt.figure()
-    subplots = [fig.add_subplot(4, 2, i+1) for i in range(DOF)]
+    subplots = [fig.add_subplot(3, 1, i+1) for i in range(DOF)]
     for (thetas, feasible) in data:
         feasible_full.extend(feasible)
         chosen_full.extend(thetas)
@@ -127,13 +120,11 @@ def plot_data2(data, mean, weights):
     chosen = np.array(chosen_full)
 
     for i in range(DOF):
-        plot_helper3(subplots[i], chosen[:,i], feasible[:,i], mean[i], weights[i], true[i], true_weights[i])
+        plot_helper3(subplots[i], chosen[:,i], feasible[:,i], mean[i], weights[i])
     plt.show()
 def update_plot(fig, ax, row, col, feasible, chosen, mean, weight):
     stddev = 1 / np.sqrt(weight)
-    true_mean = true[col]
-    true_stddev = 1 / np.sqrt(true_weights[col])
-    # ax.clear()
+    ax.clear()
 
     if col == 0:
         ylabel = ax.set_ylabel('iteration ' + str(row))
@@ -141,12 +132,10 @@ def update_plot(fig, ax, row, col, feasible, chosen, mean, weight):
     ax.set_ylim((0, 1.5))
     x = np.linspace(-5, 5, 2000)
     y = norm.pdf(x, loc=mean, scale=stddev)
-    y_true = norm.pdf(x, loc=true_mean, scale=true_stddev)
     ax.plot(x, y, label='calculated')
-    ax.plot(x, y_true, label='true')
     ax.hist(feasible, normed=True, label='feasible')
     ax.hist(chosen, normed=True, fc=(0.3, 0.2, 1, 0.5), label='chosen')
-    if row % 7 == 0 and col == 0:
+    if row % 3 == 0 and col == 0:
         ax.legend(loc='upper left')
 def create_updating_plots(data):
     feasible_full = []
@@ -158,12 +147,10 @@ def create_updating_plots(data):
     chosen = np.array(chosen_full)
     lines = []
     labels = []
-    fig, axes = plt.subplots(nrows=7, ncols=7, figsize=(12,6), sharex=True, sharey=True)
+    fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(12,6), sharex=True, sharey=True)
     for i in range(DOF):
         mean = means[i]
         stddev = 1 / np.sqrt((alphas[i] - 1) / betas[i])
-        true_stddev = 1 / np.sqrt(true_weights[i])
-        true_mean = true[i]
 
         ax = axes[0][i]
         ax.set_xlim((-5, 5))
@@ -174,9 +161,7 @@ def create_updating_plots(data):
             ax.set_ylabel('iteration 0')
         x = np.linspace(-5, 5, 2000)
         y = norm.pdf(x, loc=mean, scale=stddev)
-        y_true = norm.pdf(x, loc=true_mean, scale=true_stddev)
         ax.plot(x, y, label='initial')
-        ax.plot(x, y_true, label='true')
         ax.hist(feasible[:,i], normed=True, label='feasible')
         ax.hist(chosen[:,i], normed=True, fc=(0.3, 0.2, 1, 0.5), label='chosen')
         if i == 0:
@@ -185,7 +170,17 @@ def create_updating_plots(data):
     plt.show(block=False)
     return fig, axes, feasible, chosen, lines, labels
 #######################################################
-data = np.load("./random_training_data_k5.npy")
+data = np.load('./arm_joints_feasible_data.npy')
+feasible_sets = np.load("./feasible_sets2.npy")
+X, ys = pe.preprocess(data)
+avg = np.mean(ys, axis=0)
+
+data = []
+for i in range(len(X)):
+    x, y = X[i], pe.normalize(ys[i])
+    Y_x = feasible_sets[i]
+    Y_x = np.vstack((Y_x, y))
+    data.append(([y], Y_x))
 
 means = np.zeros(DOF)
 taus = np.ones(DOF) * 0.001
@@ -210,14 +205,14 @@ for (thetas, feasible) in data:
     alphas = new_alphas
     betas = new_betas
     for i in range(DOF):
-        update_plot(fig, axes[j%7][i], j, i, full_feasible[:,i], full_chosen[:,i], means[i], (alphas[i] - 1) / betas[i])
+        update_plot(fig, axes[j%3][i], j, i, full_feasible[:,i], full_chosen[:,i], means[i], (alphas[i] - 1) / betas[i])
     fig.canvas.draw()
     plt.show(block=False)
     time.sleep(1)
     print j
     j += 1
-    if j == 7:
-        plt.show()
+    # if j == 7:
+    #     plt.show()
 w = []
 theta_star = []
 for i in range(DOF):
