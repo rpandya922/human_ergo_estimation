@@ -6,11 +6,13 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy.stats import gamma
 from scipy.stats import norm
 import probability_estimation as pe
+from mpl_toolkits.axes_grid1 import host_subplot
+import mpl_toolkits.axisartist as AA
 #######################################################
 # CONSTANTS/FUNCTIONS
 DOF = 7
 ALPHA = 0.5
-true = np.array([0, 0, 0, 0, 0, 0, 0])
+true = np.array([5, 5, 5, 5, 5, 5, 5])
 # true = np.array([0])
 sample_precision = np.identity(DOF)
 true_weights = np.array([1, 1, 1, 1, 1, 1, 1])
@@ -20,14 +22,14 @@ def cost(theta, theta_star, w):
 def plot_helper(feasible, mean, true):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(feasible[:,0], feasible[:,1], feasible[:,2], label='feasible')
+    ax.scatter(feasible[:,0], feasible[:,1], feasible[:,2], s=1, label='feasible')
     ax.scatter(mean[0], mean[1], mean[2], marker='^', c='r', s=500, label='estimated')
     ax.scatter(true[0], true[1], true[2], c='r', s=500, label='true')
     plt.legend(loc='upper left')
 def plot_helper2(feasible, mean, true):
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.set_xlim((-3.14, 3.14))
+    ax.set_xlim((-5, 5))
     ax.scatter(feasible, np.zeros(len(feasible)), label='feasible')
     ax.scatter(mean, 0, c='r', s=200, marker='^', label='estimated')
     ax.scatter(true, 0, c='r', s=200, label='true')
@@ -45,13 +47,13 @@ def plot_data(data, mean):
     # ax.scatter(mean[6], 0, c='r', s=200, marker='^', label='estimated')
     # ax.scatter(true[6], 0, c='r', s=200, label='true')
     # plt.legend(loc='upper left')
-    # for i in range(DOF):
-    #     plot_helper2(feasible[:,i], mean[i], true[i])
-    # plt.show()
-    for (theta, feasible) in data:
-        for i in range(DOF):
-            plot_helper2(feasible[:,i], mean[i], true[i])
-        plt.show()
+    for i in range(DOF):
+        plot_helper2(feasible[:,i], mean[i], true[i])
+    plt.show()
+    # for (theta, feasible) in data:
+    #     for i in range(DOF):
+    #         plot_helper2(feasible[:,i], mean[i], true[i])
+    #     plt.show()
 def estimate_mean(data):
     mean = np.array([0]*DOF)
     precision = np.identity(DOF)
@@ -97,8 +99,34 @@ def plot_distributions(mu, tau, alpha, beta):
     plt.legend(loc='upper left')
 
     plt.show()
+def plot_helper3(chosen, feasible, mean, weight, true_mean, true_weight):
+    stddev = 1 / np.sqrt(weight)
+    true_stddev = 1 / np.sqrt(true_weight)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.set_xlim((-3.14, 8))
+    x = np.linspace(-5, 8, 2000)
+    y = norm.pdf(x, loc=mean, scale=stddev)
+    y_true = norm.pdf(x, loc=true_mean, scale=true_stddev)
+    ax.plot(x, y, label='calculated')
+    ax.plot(x, y_true, label='true')
+    ax.hist(feasible, normed=True, label='feasible')
+    ax.hist(chosen, normed=True, fc=(0.3, 0.2, 1, 0.5), label='chosen')
+    ax.legend(loc='upper left')
+def plot_data2(data, mean, weights):
+    feasible_full = []
+    chosen_full = []
+    for (thetas, feasible) in data:
+        feasible_full.extend(feasible)
+        chosen_full.extend(thetas)
+    feasible = np.array(feasible_full)
+    chosen = np.array(chosen_full)
+    for i in range(DOF):
+        plot_helper3(chosen[:,i], feasible[:,i], mean[i], weights[i], true[i], true_weights[i])
+    plt.show()
 #######################################################
-data = np.load("./random_training_data.npy")
+data = np.load("./full_sim_k_training_data.npy")
 
 means = np.zeros(DOF)
 taus = np.ones(DOF) * 0.001
@@ -127,7 +155,7 @@ for i in range(DOF):
     w.append((alphas[i] - 1) / betas[i])
     theta_star.append(means[i])
     # plot_distributions(means[i], taus[i], alphas[i], betas[i])
-
+plot_data2(data, theta_star, w)
 likelihood1 = 0
 likelihood2 = 0
 lam1 = np.hstack((w, theta_star))
