@@ -9,7 +9,7 @@ from scipy.stats import norm
 import probability_estimation as pe
 from mpl_toolkits.axes_grid1 import host_subplot
 import mpl_toolkits.axisartist as AA
-from sklearn.manifold import TSNE
+from matplotlib.patches import Ellipse
 from sklearn.decomposition import PCA
 from matplotlib import cm
 import time
@@ -346,6 +346,86 @@ def argmax_info_gain(feasible, means, taus, alphas, betas):
     return np.amax([info_gain(means, taus, alphas, betas, [theta]) for theta in feasible])
 def argmin_cost(feasible, lam):
     return np.amin([cost(theta, lam[DOF:], lam[:DOF]) for theta in feasible])
+def plot_entropy_change(data):
+    sampled_data = []
+    for (thetas, feasible) in data:
+        idxs = np.random.choice(len(feasible), size=1000)
+        sampled_data.append((thetas, feasible[idxs]))
+    data = sampled_data
+
+    means = np.zeros(DOF)
+    taus = np.ones(DOF) * 0.001
+    alphas = np.ones(DOF) * 2
+    betas = np.ones(DOF) / 2
+
+    means2 = np.zeros(DOF)
+    taus2 = np.ones(DOF) * 0.001
+    alphas2 = np.ones(DOF) * 2
+    betas2 = np.ones(DOF) / 2
+
+    means3 = np.zeros(DOF)
+    taus3 = np.ones(DOF) * 0.001
+    alphas3 = np.ones(DOF) * 2
+    betas3 = np.ones(DOF) / 2
+
+    means4 = np.zeros(DOF)
+    taus4 = np.ones(DOF) * 0.001
+    alphas4 = np.ones(DOF) * 2
+    betas4 = np.ones(DOF) / 2
+
+    means5 = np.zeros(DOF)
+    taus5 = np.ones(DOF) * 0.001
+    alphas5 = np.ones(DOF) * 2
+    betas5 = np.ones(DOF) / 2
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    init_ent = entropy(means, taus, alphas, betas)
+    info_gain_ent = [init_ent]
+    cost_ent = [init_ent]
+    info_gain_alpha0 = [init_ent]
+    info_gain_max = [init_ent]
+    cost_min = [init_ent]
+    for i in range(80):
+        lam = np.hstack(((alphas - 1) / betas, means))
+        lam2 = np.hstack(((alphas2 - 1) / betas2, means2))
+        lam3 = np.hstack(((alphas3 - 1) / betas3, means3))
+        lam4 = np.hstack(((alphas4 - 1) / betas4, means4))
+        lam5 = np.hstack(((alphas5 - 1) / betas5, means5))
+
+        info_thetas, _ = max(data, key=lambda x: \
+        expected_info_gain(x[1], means, taus, alphas, betas, lam, ALPHA))
+        cost_thetas, _ = min(data, key=lambda x: \
+        expected_cost(x[1], lam2, ALPHA))
+        info_thetas2, _ = max(data, key=lambda x: \
+        expected_info_gain(x[1], means3, taus3, alphas3, betas3, lam3, 0))
+        max_infos, _ = max(data, key=lambda x: \
+        argmax_info_gain(x[1], means4, taus4, alphas4, betas4))
+        min_costs, _ = min(data, key=lambda x: \
+        argmin_cost(x[1], lam5))
+
+        means, taus, alphas, betas = update(means, taus, alphas, betas, info_thetas)
+        means2, taus2, alphas2, betas2 = update(means2, taus2, alphas2, betas2, cost_thetas)
+        means3, taus3, alphas3, betas3 = update(means3, taus3, alphas3, betas3, info_thetas2)
+        means4, taus4, alphas4, betas4 = update(means4, taus4, alphas4, betas4, max_infos)
+        means5, taus5, alphas5, betas5 = update(means5, taus5, alphas5, betas5, min_costs)
+
+        info_gain_ent.append(entropy(means, taus, alphas, betas))
+        cost_ent.append(entropy(means2, taus2, alphas2, betas2))
+        info_gain_alpha0.append(entropy(means3, taus3, alphas3, betas3))
+        info_gain_max.append(entropy(means4, taus4, alphas4, betas4))
+        cost_min.append(entropy(means5, taus5, alphas5, betas5))
+        print i
+    ax.plot(info_gain_ent, label='max expected info')
+    ax.plot(info_gain_alpha0, label='max expected info, alpha=0')
+    ax.plot(info_gain_max, label='max info gain')
+    ax.plot(cost_min, label='min cost')
+    ax.plot(cost_ent, label='min expected cost')
+    ax.set_xlabel('iteration')
+    ax.set_ylabel('entropy')
+    plt.legend(loc='upper right')
+    plt.show()
 #######################################################
 data = np.load("./full_sim_k_training_data_0.npy")
 
@@ -355,76 +435,65 @@ for (thetas, feasible) in data:
     sampled_data.append((thetas, feasible[idxs]))
 data = sampled_data
 
+full_feasible = []
+full_feasible.append(data[0][1][0])
+for (thetas, feasible) in data:
+    idxs = np.random.choice(len(feasible), size=100)
+    full_feasible.extend(feasible[idxs])
+full_feasible = np.array(full_feasible)
+model = PCA(n_components=2)
+model.fit(full_feasible)
+components = model.components_
+
 means = np.zeros(DOF)
 taus = np.ones(DOF) * 0.001
 alphas = np.ones(DOF) * 2
 betas = np.ones(DOF) / 2
 
-means2 = np.zeros(DOF)
-taus2 = np.ones(DOF) * 0.001
-alphas2 = np.ones(DOF) * 2
-betas2 = np.ones(DOF) / 2
+points = []
+for i in range(2):
+    thetas, feasible = data[i]
+    points.extend(thetas)
+    means, taus, alphas, betas = update(means, taus, alphas, betas, thetas)
+points = np.array(points)
 
-means3 = np.zeros(DOF)
-taus3 = np.ones(DOF) * 0.001
-alphas3 = np.ones(DOF) * 2
-betas3 = np.ones(DOF) / 2
+infos = []
+lam = np.hstack(((alphas - 1) / betas, means))
+for i in range(len(data)):
+    thetas, feasible = data[i]
+    infos.append((i, expected_info_gain(feasible, means, taus, alphas, betas, lam, ALPHA)))
+infos = sorted(infos, key=lambda x: x[1])
 
-means4 = np.zeros(DOF)
-taus4 = np.ones(DOF) * 0.001
-alphas4 = np.ones(DOF) * 2
-betas4 = np.ones(DOF) / 2
+widths = np.sqrt(betas / (alphas - 1)) * 2 * np.sqrt(5.991)
+widths = np.dot(components, widths)
+mean = np.dot(components, means)
+points = model.transform(points)
 
-means5 = np.zeros(DOF)
-taus5 = np.ones(DOF) * 0.001
-alphas5 = np.ones(DOF) * 2
-betas5 = np.ones(DOF) / 2
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-
-init_ent = entropy(means, taus, alphas, betas)
-info_gain_ent = [init_ent]
-cost_ent = [init_ent]
-info_gain_alpha0 = [init_ent]
-info_gain_max = [init_ent]
-cost_min = [init_ent]
-for i in range(80):
-    lam = np.hstack(((alphas - 1) / betas, means))
-    lam2 = np.hstack(((alphas2 - 1) / betas2, means2))
-    lam3 = np.hstack(((alphas3 - 1) / betas3, means3))
-    lam4 = np.hstack(((alphas4 - 1) / betas4, means4))
-    lam5 = np.hstack(((alphas5 - 1) / betas5, means5))
-
-    info_thetas, _ = max(data, key=lambda x: \
-    expected_info_gain(x[1], means, taus, alphas, betas, lam, ALPHA))
-    cost_thetas, _ = min(data, key=lambda x: \
-    expected_cost(x[1], lam2, ALPHA))
-    info_thetas2, _ = max(data, key=lambda x: \
-    expected_info_gain(x[1], means3, taus3, alphas3, betas3, lam3, 0))
-    max_infos, _ = max(data, key=lambda x: \
-    argmax_info_gain(x[1], means4, taus4, alphas4, betas4))
-    min_costs, _ = min(data, key=lambda x: \
-    argmin_cost(x[1], lam5))
-
-    means, taus, alphas, betas = update(means, taus, alphas, betas, info_thetas)
-    means2, taus2, alphas2, betas2 = update(means2, taus2, alphas2, betas2, cost_thetas)
-    means3, taus3, alphas3, betas3 = update(means3, taus3, alphas3, betas3, info_thetas2)
-    means4, taus4, alphas4, betas4 = update(means4, taus4, alphas4, betas4, max_infos)
-    means5, taus5, alphas5, betas5 = update(means5, taus5, alphas5, betas5, min_costs)
-
-    info_gain_ent.append(entropy(means, taus, alphas, betas))
-    cost_ent.append(entropy(means2, taus2, alphas2, betas2))
-    info_gain_alpha0.append(entropy(means3, taus3, alphas3, betas3))
-    info_gain_max.append(entropy(means4, taus4, alphas4, betas4))
-    cost_min.append(entropy(means5, taus5, alphas5, betas5))
-    print i
-ax.plot(info_gain_ent, label='max expected info')
-ax.plot(info_gain_alpha0, label='max expected info, alpha=0')
-ax.plot(info_gain_max, label='max info gain')
-ax.plot(cost_min, label='min cost')
-ax.plot(cost_ent, label='min expected cost')
-ax.set_xlabel('iteration')
-ax.set_ylabel('entropy')
-plt.legend(loc='upper right')
+fig, axes = plt.subplots(nrows=2, ncols=10, sharex=True, sharey=True)
+for i in range(10):
+    ax = axes[0][i]
+    idx, info = infos[:10][i]
+    thetas, feasible = data[idx]
+    feasible = model.transform(feasible)
+    ell = Ellipse(xy=mean, width=widths[0], height=widths[1], angle=0, edgecolor='b', lw=4, facecolor='none')
+    ax.add_artist(ell)
+    ax.scatter(mean[0], mean[1], zorder=2, label='current mean')
+    ax.scatter(points[:,0], points[:,1], c='r', zorder=2, label='used points')
+    ax.scatter(feasible[:,0], feasible[:,1], zorder=1, label='feas, info=' + str(info))
+    if i == 0:
+        ax.set_ylabel('five least informative sets')
+    ax.legend(loc="upper left")
+for i in range(10):
+    ax = axes[1][i]
+    idx, info = infos[len(infos) - 10:][i]
+    thetas, feasible = data[idx]
+    feasible = model.transform(feasible)
+    ell = Ellipse(xy=mean, width=widths[0], height=widths[1], angle=0, edgecolor='b', lw=4, facecolor='none')
+    ax.add_artist(ell)
+    ax.scatter(mean[0], mean[1], zorder=2, label='current mean')
+    ax.scatter(points[:,0], points[:,1], c='r', zorder=2, label='used points')
+    ax.scatter(feasible[:,0], feasible[:,1], zorder=1, label='feas, info=' + str(info))
+    if i == 0:
+        ax.set_ylabel('five most informative sets')
+    ax.legend(loc="upper left")
 plt.show()
