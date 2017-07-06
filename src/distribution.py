@@ -1,9 +1,10 @@
 from __future__ import division
 import numpy as np
 from scipy.misc import logsumexp
+from scipy.stats import gaussian_kde as kde
 import probability_estimation as pe
 
-h = 0.5
+h = 0.2
 class ParticleDistribution():
     def __init__(self, particles, weights, cost):
         self.NUM_PARTICLES = len(particles)
@@ -22,6 +23,35 @@ class ParticleDistribution():
         except:
             print "Exception: " + str(np.sum(weights))
         return weights / np.sum(weights)
+    def reweight_general(self, observation, prob):
+        weights = np.array(self.weights)
+        mult = np.array([prob(observation, particle) for particle in self.particles])
+        weights *= mult
+        self.weights = weights / np.sum(weights)
+    def plot_kde(self, ax1, ax2):
+        ws = np.zeros(self.NUM_PARTICLES)
+        means = np.zeros(self.NUM_PARTICLES)
+        for i, particle in enumerate(self.particles):
+            ws[i] = particle[0]
+            means[i] = particle[1]
+        kernel1 = kde(ws)
+        kernel2 = kde(means)
+        x1 = np.linspace(-5, 10, 2000)
+        x2 = np.linspace(-6, 6, 2000)
+        pdf1 = kernel1.pdf(x1)
+        pdf2 = kernel2.pdf(x2)
+        mode1 = x1[np.argmax(pdf1)]
+        mode2 = x2[np.argmax(pdf2)]
+        ax1.set_title('weights')
+        ax2.set_title('means')
+        ax1.set_ylim(0, 1.5)
+        ax2.set_ylim(0, 1.5)
+        ax1.plot(x1, pdf1, label='mode=' + str(mode1))
+        ax1.hist(ws, normed=True)
+        ax2.plot(x2, pdf2, label='mode=' + str(mode2))
+        ax2.hist(means, normed=True)
+        ax1.legend(loc='upper left')
+        ax2.legend(loc='upper left')
     def resample(self, size=None):
         if size is None:
             size = self.NUM_PARTICLES
@@ -82,7 +112,7 @@ class ParticleDistribution():
         # print self.weights
         # print new_weights
         return dist.entropy(num_boxes, axis_ranges) - self.entropy(num_boxes, axis_ranges)
-        
+
 class SetWeightsParticleDistribution():
     def __init__(self, particles, weights, cost, w, ALPHA=0.5):
         self.NUM_PARTICLES = len(particles)
@@ -91,15 +121,13 @@ class SetWeightsParticleDistribution():
         self.cost = cost
         self.w = w
         self.ALPHA = ALPHA
-    def reweight(self, theta, Theta_x, size=None):
-        if size is None:
-            size = self.NUM_PARTICLES
+    def reweight(self, theta, feasible):
         weights = np.array(self.weights)
         mult = np.zeros(self.NUM_PARTICLES)
         for i in range(self.NUM_PARTICLES):
             particle = self.particles[i]
             mult[i] = pe.prob_theta_given_lam_stable_set_weight_num(theta, particle, self.w, self.cost, self.ALPHA)
-        mult = np.exp(mult - pe.prob_theta_given_lam_stable_set_weight_denom(Theta_x, particle, self.w, self.cost, self.ALPHA))
+        mult = np.exp(mult - pe.prob_theta_given_lam_stable_set_weight_denom(feasible, particle, self.w, self.cost, self.ALPHA))
         weights *= mult
         return weights / np.sum(weights)
     def resample(self, size=None):
