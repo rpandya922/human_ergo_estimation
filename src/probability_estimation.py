@@ -8,7 +8,7 @@ from scipy.misc import logsumexp
 #########################################################
 # CONSTANTS AND FUNCTIONS
 # ALPHA = 0.1
-DOF = 7
+DOF = 1
 feasible = []
 def normalize(angles):
     s = []
@@ -71,6 +71,13 @@ def prob_theta_given_lam_stable2(theta, lam, Theta_x, cost, ALPHA):
     for theta_prime in Theta_x:
         costs.append(-ALPHA * cost(theta_prime, theta_star, w))
     return np.exp(p - logsumexp(costs))
+def prob_theta_given_lam_stable_set_weight_num(theta, theta_star, w, cost, ALPHA):
+    return -ALPHA * cost(theta, theta_star, w)
+def prob_theta_given_lam_stable_set_weight_denom(feasible, theta_star, w, cost, ALPHA):
+    costs = []
+    for theta in feasible:
+        costs.append(-ALPHA * cost(theta, theta_star, w))
+    return logsumexp(costs)
 def prob_stable2_num(theta, lam, cost, ALPHA):
     w = lam[:DOF]
     theta_star = lam[DOF:]

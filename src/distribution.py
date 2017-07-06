@@ -82,4 +82,36 @@ class ParticleDistribution():
         # print self.weights
         # print new_weights
         return dist.entropy(num_boxes, axis_ranges) - self.entropy(num_boxes, axis_ranges)
-
+        
+class SetWeightsParticleDistribution():
+    def __init__(self, particles, weights, cost, w, ALPHA=0.5):
+        self.NUM_PARTICLES = len(particles)
+        self.particles = particles
+        self.weights = weights
+        self.cost = cost
+        self.w = w
+        self.ALPHA = ALPHA
+    def reweight(self, theta, Theta_x, size=None):
+        if size is None:
+            size = self.NUM_PARTICLES
+        weights = np.array(self.weights)
+        mult = np.zeros(self.NUM_PARTICLES)
+        for i in range(self.NUM_PARTICLES):
+            particle = self.particles[i]
+            mult[i] = pe.prob_theta_given_lam_stable_set_weight_num(theta, particle, self.w, self.cost, self.ALPHA)
+        mult = np.exp(mult - pe.prob_theta_given_lam_stable_set_weight_denom(Theta_x, particle, self.w, self.cost, self.ALPHA))
+        weights *= mult
+        return weights / np.sum(weights)
+    def resample(self, size=None):
+        if size is None:
+            size = self.NUM_PARTICLES
+        new_particles = []
+        idxs = np.random.choice(self.NUM_PARTICLES, size=size, p=self.weights)
+        for i in range(size):
+            idx = idxs[i]
+            sample = self.particles[idx]
+            new_particles.append(np.random.normal(sample, h))
+            # new_particles.append(sample)
+        self.particles = new_particles
+        self.weights = [1/size]*size
+        self.NUM_PARTICLES = size
