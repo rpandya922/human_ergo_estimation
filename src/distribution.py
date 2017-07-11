@@ -114,20 +114,26 @@ class ParticleDistribution():
         return dist.entropy(num_boxes, axis_ranges) - self.entropy(num_boxes, axis_ranges)
 
 class SetWeightsParticleDistribution():
-    def __init__(self, particles, weights, cost, w, ALPHA=0.5):
+    def __init__(self, particles, weights, cost, w, ALPHA_I, ALPHA_O):
         self.NUM_PARTICLES = len(particles)
         self.particles = particles
         self.weights = weights
         self.cost = cost
         self.w = w
-        self.ALPHA = ALPHA
+        self.ALPHA_I = ALPHA_I
+        self.ALPHA_O = ALPHA_O
     def reweight(self, theta, feasible):
         weights = np.array(self.weights)
         mult = np.zeros(self.NUM_PARTICLES)
         for i in range(self.NUM_PARTICLES):
             particle = self.particles[i]
-            mult[i] = pe.prob_theta_given_lam_stable_set_weight_num(theta, particle, self.w, self.cost, self.ALPHA)
-        mult = np.exp(mult - pe.prob_theta_given_lam_stable_set_weight_denom(feasible, particle, self.w, self.cost, self.ALPHA))
+            if particle[0] < np.amin(feasible) or particle[0] > np.amax(feasible):
+                alpha = self.ALPHA_O
+            else:
+                alpha = self.ALPHA_I
+            mult[i] = pe.prob_theta_given_lam_stable_set_weight_num(theta, particle, self.w, self.cost, alpha)
+            mult[i] -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, particle, self.w, self.cost, alpha)
+        mult = np.exp(mult)
         weights *= mult
         return weights / np.sum(weights)
     def resample(self, size=None):
@@ -143,3 +149,48 @@ class SetWeightsParticleDistribution():
         self.particles = new_particles
         self.weights = [1/size]*size
         self.NUM_PARTICLES = size
+    def entropy(self, num_boxes=10, axis_ranges=None):
+        if axis_ranges is None:
+            axis_ranges = np.array([20]*len(self.particles[0]))
+        box_sizes = axis_ranges / num_boxes
+        discretized = np.round(np.array(self.particles) / box_sizes) * box_sizes
+        counts = {}
+        for i in range(self.NUM_PARTICLES):
+            particle = discretized[i]
+            weight = self.weights[i]
+            try:
+                counts[tuple(particle)] += weight
+            except:
+                counts[tuple(particle)] = weight
+        vals = np.array(counts.values()) / np.sum(counts.values())
+        return -np.sum(vals * np.log2(vals))
+    def info_gain(self, feasible, num_boxes=10, axis_ranges=None):
+        new_weights = np.zeros(self.NUM_PARTICLES)
+        avg_ent = 0
+        alpha = self.ALPHA_I
+        for i in range(self.NUM_PARTICLES):
+            particle = self.particles[i]
+            weight = self.weights[i]
+            theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, particle, self.w, self.cost, alpha))
+            weights = self.reweight(theta, feasible)
+            d = SetWeightsParticleDistribution(self.particles, weights, self.cost, self.w, self.ALPHA_I, self.ALPHA_O)
+            ent = d.entropy(num_boxes, axis_ranges)
+            avg_ent += weight * ent
+            print i
+        return self.entropy(num_boxes, axis_ranges) - avg_ent
+    def discretize_to_probs(self, feasible, num_boxes=10, axis_ranges=None):
+        if axis_ranges is None:
+            axis_ranges = np.array([20]*len(self.particles[0]))
+        box_sizes = axis_ranges / num_boxes
+        discretized = np.round(np.array(self.particles) / box_sizes) * box_sizes
+        counts = {}
+        for i in range(self.NUM_PARTICLES):
+            particle = discretized[i]
+            weight = self.weights[i]
+            try:
+                counts[tuple(particle)] += weight
+            except:
+                counts[tuple(particle)] = weight
+        return np.array(counts.values()) / np.sum(counts.values())
+    def info_gain_kl(self, feasible, num_boxes=10, axis_ranges=None):
+        ps = self.discretize_to_probs(feasible, num_boxes, axis_ranges)

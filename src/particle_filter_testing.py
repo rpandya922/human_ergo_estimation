@@ -20,8 +20,8 @@ x_widths = 5
 num_boxes = 100
 axis_ranges = 2 * np.array([weight_widths])
 box_size = x_widths * 2 / num_boxes
-true_mean = [0, 0]
-true_weight = [1, 1]
+true_mean = [-3, 2]
+true_weight = [3, 3]
 def cost():
     return 1
 def prob(obs, lam):
