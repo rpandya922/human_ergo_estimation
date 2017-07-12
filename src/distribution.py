@@ -190,6 +190,6 @@ class SetWeightsParticleDistribution():
             weights = self.reweight(theta, feasible)
             div = np.sum(weights * np.log(weights)) - np.log(1 / self.NUM_PARTICLES)
             avg += weight * div
-        print str(avg) + ", " + str(max(feasible))
+        print str(avg) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return avg
 
