@@ -6,11 +6,12 @@ from scipy.stats import gaussian_kde as kde
 import probability_estimation as pe
 from distribution import SetWeightsParticleDistribution
 import multiprocessing as mp
+from functools import partial
 
 #########################################################
 # CONSTANTS AND FUNCTIONS
 DOF = 1
-NUM_PARTICLES = 1000
+NUM_PARTICLES = 100
 box_size = 0.1
 ALPHA_I = 1
 ALPHA_O = 1
@@ -42,7 +43,7 @@ dist = SetWeightsParticleDistribution(particles, weights, cost, w=[1], ALPHA_I=A
 # dist.resample()
 # particles = dist.particles
 
-def info_gain(x):
+def info_gain(dist, x):
     return (x, dist.info_gain(x[1]))
 if __name__ == '__main__':
     pool = mp.Pool(6)
@@ -67,8 +68,11 @@ if __name__ == '__main__':
     # data = [(6, create_feasible_set(6, 9, 6)), (4, create_feasible_set(2, 6, 4)), (2, create_feasible_set(-2, 2, 2))]
     # data = [(-2, create_feasible_set(-4, -2, -2)), (2, create_feasible_set(2, 4, 2))]
     for i in range(1, 4):
+        print dist.entropy()
         ax = axes[i]
-        (theta, feasible) = max(pool.map(info_gain, data), key=lambda x: x[1])[0]
+        func = partial(info_gain, dist)
+        (theta, feasible) = max(pool.map(func, data), key=lambda x: x[1])[0]
+        print
         # (theta, feasible) = max(data, key=lambda x: dist.info_gain(x[1]))
     # for (theta, feasible) in data:
         dist.weights = dist.reweight(theta, feasible)
