@@ -176,21 +176,20 @@ class SetWeightsParticleDistribution():
             d = SetWeightsParticleDistribution(self.particles, weights, self.cost, self.w, self.ALPHA_I, self.ALPHA_O)
             ent = d.entropy(num_boxes, axis_ranges)
             avg_ent += weight * ent
-            print i
-        return self.entropy(num_boxes, axis_ranges) - avg_ent
-    def discretize_to_probs(self, feasible, num_boxes=10, axis_ranges=None):
-        if axis_ranges is None:
-            axis_ranges = np.array([20]*len(self.particles[0]))
-        box_sizes = axis_ranges / num_boxes
-        discretized = np.round(np.array(self.particles) / box_sizes) * box_sizes
-        counts = {}
+            # print i
+        ret = self.entropy(num_boxes, axis_ranges) - avg_ent
+        print str(ret) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
+        return ret
+    def info_gain_kl(self, feasible):
+        avg = 0
+        alpha = self.ALPHA_I
         for i in range(self.NUM_PARTICLES):
-            particle = discretized[i]
+            particle = self.particles[i]
             weight = self.weights[i]
-            try:
-                counts[tuple(particle)] += weight
-            except:
-                counts[tuple(particle)] = weight
-        return np.array(counts.values()) / np.sum(counts.values())
-    def info_gain_kl(self, feasible, num_boxes=10, axis_ranges=None):
-        ps = self.discretize_to_probs(feasible, num_boxes, axis_ranges)
+            theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, particle, self.w, self.cost, alpha))
+            weights = self.reweight(theta, feasible)
+            div = np.sum(weights * np.log(weights)) - np.log(1 / self.NUM_PARTICLES)
+            avg += weight * div
+        print str(avg) + ", " + str(max(feasible))
+        return avg
+

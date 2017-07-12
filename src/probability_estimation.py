@@ -31,6 +31,8 @@ def create_feasible_set(theta, stddev):
     feasible.extend(f)
     f.append(y)
     return np.array(f)
+def distance_cost1d(theta, theta_star, w):
+    return w[0] * ((theta - theta_star) ** 2)
 def distance_cost(theta, theta_star, w):
     """
     Computes the cost of set of joint angles based on squared distance from optimal
