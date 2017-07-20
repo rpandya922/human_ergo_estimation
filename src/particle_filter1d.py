@@ -74,14 +74,11 @@ if __name__ == '__main__':
     # exp_infos = []
     # actual_infos = []
 
-    # data = [(6, create_feasible_set(6, 9, 6)), (2, create_feasible_set(-4, 2, 2)), \
-    #         (2, create_feasible_set(-2, 2, 2)), (5.5, create_feasible_set(2, 5.5, 5.5)), \
-    #         (5.5, create_feasible_set(2.1, 5.6, 5.5)), (-2, create_feasible_set(-8, -2, -2))]
-    data = [(-4, create_feasible_set(-8, -4, -4)), (-1, create_feasible_set(-5, -1, -1)), \
+    data = [(-4, create_feasible_set(-10, -4, -4)), (-1, create_feasible_set(-5, -1, -1)), \
             (1, create_feasible_set(1, 5, 1)), \
             (4, create_feasible_set(4, 8, 4)), (3, create_feasible_set(3, 7, 3))]
-    # data = [(6, create_feasible_set(6, 9, 6)), (4, create_feasible_set(2, 6, 4)), (2, create_feasible_set(-2, 2, 2))]
-    # data = [(-2, create_feasible_set(-4, -2, -2)), (2, create_feasible_set(2, 4, 2))]
+    # data = [(-5, create_feasible_set(-10, -5, -5)), (0, create_feasible_set(-5, 0, 0)), \
+    #         (0, create_feasible_set(0, 5, 0)), (0, create_feasible_set(0, 10, 0))]
     for i in range(0, 16):
         ax = axes[i]
         hist_ax = hist_axes[i]

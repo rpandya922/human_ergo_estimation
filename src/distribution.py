@@ -173,10 +173,10 @@ class SetWeightsParticleDistribution():
         for i in range(self.NUM_PARTICLES):
             particle = self.particles[i]
             weight = self.weights[i]
-            if particle[0] < left or particle[0] > right:
-                alpha = self.ALPHA_O
-            else:
-                alpha = self.ALPHA_I
+            # if particle[0] < left or particle[0] > right:
+            #     alpha = self.ALPHA_O
+            # else:
+            #     alpha = self.ALPHA_I
             theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, particle, self.w, self.cost, alpha))
             weights = self.reweight(theta, feasible)
             d = SetWeightsParticleDistribution(self.particles, weights, self.cost, self.w, self.ALPHA_I, self.ALPHA_O)
