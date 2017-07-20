@@ -168,9 +168,15 @@ class SetWeightsParticleDistribution():
         new_weights = np.zeros(self.NUM_PARTICLES)
         avg_ent = 0
         alpha = self.ALPHA_I
+        left = np.amin(feasible)
+        right = np.amax(feasible)
         for i in range(self.NUM_PARTICLES):
             particle = self.particles[i]
             weight = self.weights[i]
+            if particle[0] < left or particle[0] > right:
+                alpha = self.ALPHA_O
+            else:
+                alpha = self.ALPHA_I
             theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, particle, self.w, self.cost, alpha))
             weights = self.reweight(theta, feasible)
             d = SetWeightsParticleDistribution(self.particles, weights, self.cost, self.w, self.ALPHA_I, self.ALPHA_O)
@@ -180,6 +186,17 @@ class SetWeightsParticleDistribution():
         ret = self.entropy(num_boxes, axis_ranges) - avg_ent
         print str(ret) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return ret
+    def expected_cost(self, feasible):
+        new_weights = np.zeros(self.NUM_PARTICLES)
+        avg_cost = 0
+        alpha = self.ALPHA_I
+        for i in range(self.NUM_PARTICLES):
+            particle = self.particles[i]
+            weight = self.weights[i]
+            theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, particle, self.w, self.cost, alpha))
+            avg_cost += weight * self.cost(theta, particle, self.w)
+        print str(avg_cost) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
+        return avg_cost
     def info_gain_kl(self, feasible):
         avg = 0
         alpha = self.ALPHA_I
