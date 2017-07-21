@@ -3,6 +3,7 @@ import numpy as np
 from scipy.misc import logsumexp
 from scipy.stats import gaussian_kde as kde
 import probability_estimation as pe
+from sklearn.neighbors import NearestNeighbors
 
 h = 0.2
 class ParticleDistribution():
@@ -125,12 +126,22 @@ class SetWeightsParticleDistribution():
     def reweight(self, theta, feasible):
         weights = np.array(self.weights)
         mult = np.zeros(self.NUM_PARTICLES)
+
+        # nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
+        # distances, indices = nbrs.kneighbors(feasible)
+        # max_dist = np.amax(distances)
+        # distances, indices = nbrs.kneighbors(self.particles)
+        alpha = self.ALPHA_I
         for i in range(self.NUM_PARTICLES):
             particle = self.particles[i]
-            if particle[0] < np.amin(feasible) or particle[0] > np.amax(feasible):
-                alpha = self.ALPHA_O
-            else:
-                alpha = self.ALPHA_I
+            # if distances[i][0] >= max_dist:
+            #     alpha = self.ALPHA_O
+            # else:
+            #     alpha = self.ALPHA_I
+            # if particle[0] < np.amin(feasible) or particle[0] > np.amax(feasible):
+            #     alpha = self.ALPHA_O
+            # else:
+            #     alpha = self.ALPHA_I
             mult[i] = pe.prob_theta_given_lam_stable_set_weight_num(theta, particle, self.w, self.cost, alpha)
             mult[i] -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, particle, self.w, self.cost, alpha)
         mult = np.exp(mult)
@@ -170,9 +181,17 @@ class SetWeightsParticleDistribution():
         alpha = self.ALPHA_I
         left = np.amin(feasible)
         right = np.amax(feasible)
+        # nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
+        # distances, indices = nbrs.kneighbors(feasible)
+        # max_dist = np.amax(distances)
+        # distances, indices = nbrs.kneighbors(self.particles)
         for i in range(self.NUM_PARTICLES):
             particle = self.particles[i]
             weight = self.weights[i]
+            # if distances[i][0] >= max_dist:
+            #     alpha = self.ALPHA_O
+            # else:
+            #     alpha = self.ALPHA_I
             # if particle[0] < left or particle[0] > right:
             #     alpha = self.ALPHA_O
             # else:
