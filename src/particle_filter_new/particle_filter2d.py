@@ -77,7 +77,7 @@ if __name__ == '__main__':
             ([-9,-3], create_feasible_set_ellipse(-9.5, -7, 1, 6, [-9,-3])), \
             ([0,7], create_feasible_set([-5,10], [3,7], [0,7])), \
             ([0,0], create_feasible_set_ellipse(0, 2, 5, 3, [0,0]))]
-    for i in range(1, 9):
+    for i in range(1, 6):
         func = partial(info_gain, dist)
         pooled = pool.map(func, data)
         print
@@ -91,7 +91,6 @@ if __name__ == '__main__':
             d = SetWeightsParticleDistribution(dist.particles, dist.weights, dist.cost, dist.w, dist.ALPHA_I, dist.ALPHA_O)
             d.weights = d.reweight(t, f)
             actual_infos.append(ent_before - d.entropy(num_boxes=20))
-
         ax = axes[i]
         hist_ax = hist_axes[i]
 
