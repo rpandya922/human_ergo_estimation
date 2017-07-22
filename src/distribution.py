@@ -160,6 +160,15 @@ class SetWeightsParticleDistribution():
         self.particles = new_particles
         self.weights = [1/size]*size
         self.NUM_PARTICLES = size
+    def neg_log_likelihood(self, data):
+        total = 0
+        for (i, particle) in enumerate(self.particles):
+            ll = 0
+            for (theta, feasible) in data:
+                ll += pe.prob_theta_given_lam_stable_set_weight_num(theta, particle, self.w, self.cost, 1)
+                ll -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, particle, self.w, self.cost, 1)
+            total += (ll * self.weights[i])
+        return -total
     def entropy(self, num_boxes=10, axis_ranges=None):
         if axis_ranges is None:
             axis_ranges = np.array([20]*len(self.particles[0]))
