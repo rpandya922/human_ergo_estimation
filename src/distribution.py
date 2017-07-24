@@ -171,7 +171,7 @@ class SetWeightsParticleDistribution():
         return -total
     def entropy(self, num_boxes=10, axis_ranges=None):
         if axis_ranges is None:
-            axis_ranges = np.array([20]*len(self.particles[0]))
+            axis_ranges = np.array([3]*len(self.particles[0]))
         box_sizes = axis_ranges / num_boxes
         discretized = np.round(np.array(self.particles) / box_sizes) * box_sizes
         counts = {}
@@ -187,9 +187,9 @@ class SetWeightsParticleDistribution():
     def info_gain(self, feasible, num_boxes=10, axis_ranges=None):
         new_weights = np.zeros(self.NUM_PARTICLES)
         avg_ent = 0
-        # alpha = self.ALPHA_I
-        left = np.amin(feasible)
-        right = np.amax(feasible)
+        alpha = self.ALPHA_I
+        # left = np.amin(feasible)
+        # right = np.amax(feasible)
         nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
         distances, indices = nbrs.kneighbors(feasible)
         max_dist = np.amax(distances)
@@ -210,7 +210,8 @@ class SetWeightsParticleDistribution():
             d = SetWeightsParticleDistribution(self.particles, weights, self.cost, self.w, self.ALPHA_I, self.ALPHA_O)
             ent = d.entropy(num_boxes, axis_ranges)
             avg_ent += weight * ent
-            # print i
+            if i % 50 == 0:
+                print i
         ret = self.entropy(num_boxes, axis_ranges) - avg_ent
         print str(ret) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return ret
