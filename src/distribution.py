@@ -5,7 +5,7 @@ from scipy.stats import gaussian_kde as kde
 import probability_estimation as pe
 from sklearn.neighbors import NearestNeighbors
 
-h = 0.2
+h = 0.03
 class ParticleDistribution():
     def __init__(self, particles, weights, cost):
         self.NUM_PARTICLES = len(particles)
@@ -131,7 +131,7 @@ class SetWeightsParticleDistribution():
         distances, indices = nbrs.kneighbors(feasible)
         max_dist = np.amax(distances)
         distances, indices = nbrs.kneighbors(self.particles)
-        alpha = self.ALPHA_I
+        # alpha = self.ALPHA_I
         for i in range(self.NUM_PARTICLES):
             particle = self.particles[i]
             if distances[i][0] >= max_dist:
@@ -187,7 +187,7 @@ class SetWeightsParticleDistribution():
     def info_gain(self, feasible, num_boxes=10, axis_ranges=None):
         new_weights = np.zeros(self.NUM_PARTICLES)
         avg_ent = 0
-        alpha = self.ALPHA_I
+        # alpha = self.ALPHA_I
         left = np.amin(feasible)
         right = np.amax(feasible)
         nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
