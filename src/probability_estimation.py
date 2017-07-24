@@ -77,10 +77,6 @@ def prob_theta_given_lam_stable_set_weight_num(theta, theta_star, w, cost, ALPHA
     return -ALPHA * cost(theta, theta_star, w)
 def prob_theta_given_lam_stable_set_weight_denom(feasible, theta_star, w, cost, ALPHA):
     return logsumexp(-ALPHA * cost(feasible, theta_star, w))
-    # costs = []
-    # for theta in feasible:
-    #     costs.append(-ALPHA * cost(theta, theta_star, w))
-    # return logsumexp(costs)
 def prob_stable2_num(theta, lam, cost, ALPHA):
     w = lam[:DOF]
     theta_star = lam[DOF:]
