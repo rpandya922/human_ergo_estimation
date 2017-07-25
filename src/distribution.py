@@ -126,14 +126,27 @@ class SetWeightsParticleDistribution():
     def reweight_vectorized(self, theta, feasible):
         weights = np.array(self.weights)
         particles = np.array(self.particles)
-        costs = -self.ALPHA_I * self.cost(theta, particles, self.w)
+        nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
+        distances, indices = nbrs.kneighbors(feasible)
+        max_dist = np.amax(distances)
+        distances, indices = nbrs.kneighbors(self.particles)
+        is_outside = distances[:,0] >= max_dist
+        is_inside = ~ is_outside
+
+        c = self.cost(theta, particles, self.w)
+        costs_inside = -self.ALPHA_I * c
+        costs_outside = -self.ALPHA_O * c
 
         feas_tiled = np.repeat(feasible[:,:,np.newaxis], self.NUM_PARTICLES, axis=2)
         theta_stars = particles.T
         d_theta = np.square(feas_tiled - theta_stars)
         costs_denom = np.swapaxes(d_theta, 1, 2).dot(self.w)
-        costs_denom = logsumexp(-self.ALPHA_I * costs_denom, axis=0)
-        mult = np.exp(costs - costs_denom)
+
+        costs_denom_inside = logsumexp(-self.ALPHA_I * costs_denom, axis=0)
+        costs_denom_outside = logsumexp(-self.ALPHA_O * costs_denom, axis=0)
+
+        mult = np.exp((is_inside * (costs_inside - costs_denom_inside)) + \
+                      (is_outside * (costs_outside - costs_denom_outside)))
         weights *= mult
         return weights / np.sum(weights)
     def reweight(self, theta, feasible):
