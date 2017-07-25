@@ -125,15 +125,14 @@ class SetWeightsParticleDistribution():
         self.ALPHA_O = ALPHA_O
     def reweight_vectorized(self, theta, feasible):
         weights = np.array(self.weights)
-        mult = np.zeros(self.NUM_PARTICLES)
         particles = np.array(self.particles)
-        d_theta = theta - particles
         costs = -self.ALPHA_I * self.cost(theta, particles, self.w)
+
         feas_tiled = np.repeat(feasible[:,:,np.newaxis], self.NUM_PARTICLES, axis=2)
-        theta_stars = np.reshape(self.particles, (1, len(self.particles[0]), self.NUM_PARTICLES))
+        theta_stars = particles.T
         d_theta = np.square(feas_tiled - theta_stars)
         costs_denom = np.swapaxes(d_theta, 1, 2).dot(self.w)
-        costs_denom = logsumexp(-self.ALPHA_I * costs, axis=0)
+        costs_denom = logsumexp(-self.ALPHA_I * costs_denom, axis=0)
         mult = np.exp(costs - costs_denom)
         weights *= mult
         return weights / np.sum(weights)
