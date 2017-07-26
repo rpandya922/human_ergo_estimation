@@ -3,3 +3,4 @@ venv
 src/new_tsr_tests
 *.npy
 *.npz
+src/data
