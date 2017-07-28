@@ -6,6 +6,7 @@ import probability_estimation as pe
 from sklearn.neighbors import NearestNeighbors
 
 h = 0.03
+# h = 0.2
 class ParticleDistribution():
     def __init__(self, particles, weights, cost):
         self.NUM_PARTICLES = len(particles)

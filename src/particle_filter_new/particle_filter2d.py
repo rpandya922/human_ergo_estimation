@@ -1,4 +1,6 @@
 from __future__ import division
+import sys
+sys.path.insert(0, '../')
 import numpy as np
 import seaborn
 import matplotlib.pyplot as plt
@@ -15,10 +17,14 @@ DOF = 2
 NUM_PARTICLES = 500
 box_size = 0.5
 ALPHA_I = 0.5
-ALPHA_O = 0.1
+ALPHA_O = 0.5
 TRUE_MEAN = [0, 0]
+num_boxes = 20
+# def cost(theta, theta_star, w):
+#     return np.dot(theta - theta_star, np.dot(w, theta - theta_star))
 def cost(theta, theta_star, w):
-    return np.dot(theta - theta_star, np.dot(w, theta - theta_star))
+    d_theta = np.square(theta - theta_star)
+    return d_theta.dot(w)
 def prior(vec):
     return 1
 def create_feasible_set(upper_left, lower_right, chosen):
@@ -50,9 +56,9 @@ for i in range(NUM_PARTICLES):
     particles.append(lam)
     weights.append(weight)
 weights = np.array(weights) / np.sum(weights)
-dist = SetWeightsParticleDistribution(particles, weights, cost, w=np.array([[0.5, 0], [0, 0.5]]), ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O)
+dist = SetWeightsParticleDistribution(particles, weights, cost, w=np.array([0.5, 0.5]), ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O)
 def info_gain(dist, x):
-    return (x, dist.info_gain(x[1], num_boxes=20))
+    return (x, dist.info_gain(x[1], num_boxes=num_boxes), dist.expected_cost(x[1]))
 if __name__ == '__main__':
     pool = mp.Pool(6)
     fig, axes = plt.subplots(nrows=3, ncols=3)
@@ -77,20 +83,22 @@ if __name__ == '__main__':
             ([-9,-3], create_feasible_set_ellipse(-9.5, -7, 1, 6, [-9,-3])), \
             ([0,7], create_feasible_set([-5,10], [3,7], [0,7])), \
             ([0,0], create_feasible_set_ellipse(0, 2, 5, 3, [0,0]))]
-    for i in range(1, 6):
+    for i in range(1, 9):
         func = partial(info_gain, dist)
         pooled = pool.map(func, data)
         print
         expected_infos = [sample[1] for sample in pooled]
+        expected_costs = [sample[2] for sample in pooled]
         max_idx = np.argmax(expected_infos)
+        # max_idx = np.argmin(expected_costs)
         (theta, feasible) = pooled[max_idx][0]
         actual_infos = []
-        ent_before = dist.entropy(num_boxes=20)
+        ent_before = dist.entropy(num_boxes=num_boxes)
         for j in range(len(data)):
             t, f = data[j]
             d = SetWeightsParticleDistribution(dist.particles, dist.weights, dist.cost, dist.w, dist.ALPHA_I, dist.ALPHA_O)
             d.weights = d.reweight(t, f)
-            actual_infos.append(ent_before - d.entropy(num_boxes=20))
+            actual_infos.append(ent_before - d.entropy(num_boxes=num_boxes))
         ax = axes[i]
         hist_ax = hist_axes[i]
 
