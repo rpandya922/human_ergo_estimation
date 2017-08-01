@@ -154,12 +154,25 @@ def plot_belief_update(ax, particles, theta, feasible, ground_truth):
     ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
 #########################################################
 f = np.load('./sim_translation_training_data.npz')
-all_data = f['data']
+all_data = f['data'][:15]
 poses = f['poses']
 env, human, robot, target, target_desc = load_environment_file('test_problem_def.npz')
 env.SetViewer('qtcoin')
 idxs = np.random.choice(len(all_data), size=8)
 data = all_data
+
+newrobots = []
+for ind in range(15):
+    newrobot = RaveCreateRobot(env,human.GetXMLId())
+    newrobot.Clone(human,0)
+    for link in newrobot.GetLinks():
+        for geom in link.GetGeometries():
+            geom.SetTransparency(0.8)
+    newrobots.append(newrobot)
+for link in robot.GetLinks():
+    for geom in link.GetGeometries():
+        geom.SetTransparency(0.8)
+
 particles = []
 weights = []
 all_feas = []
@@ -219,6 +232,16 @@ if __name__ == '__main__':
         dist.resample()
 
         target.SetTransform(poses[i])
+        with env:
+            inds = np.array(np.linspace(0,len(feasible)-1,15),int)
+            for j,ind in enumerate(inds):
+                print ind
+                newrobot = newrobots[j]
+                env.Add(newrobot,True)
+                newrobot.SetTransform(human.GetTransform())
+                newrobot.SetDOFValues(feasible[ind], human.GetActiveManipulator().GetArmIndices()[:4])
+        env.UpdatePublishedBodies()
+
         ax = axes[i]
         ax2 = axes2[i]
         bar_ax = bar_axes[i]
