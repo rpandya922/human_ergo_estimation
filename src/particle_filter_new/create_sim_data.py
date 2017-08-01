@@ -14,11 +14,12 @@ DOF = 4
 ALPHA = 40
 FEASIBLE_SIZE = 1000
 TRUE_MEAN = np.array([0, 0, 0, 0])
-TRUE_WEIGHTS = np.diag([1, 1, 1, 1])
+TRUE_WEIGHTS = np.array([1, 1, 1, 1])
 training_data_size = 500
 
 def cost(theta, theta_star, w):
-    return np.dot(theta - theta_star, np.dot(w, theta - theta_star))
+    d_theta = np.square(theta - theta_star)
+    return d_theta.dot(w)
 def get_feasible_set(data, pose):
     sets_list = data[:,pose]
     feasible = []
@@ -36,28 +37,32 @@ def create_sample(feasible, probs):
     # idx = np.random.choice(len(feasible), p=probs)
     idx = np.argmax(probs)
     return (feasible[idx], feasible)
-def preprocess_feasible(data):
+def preprocess_feasible(data, poses):
     new_data = []
+    new_poses = []
     for i in range(data.shape[1]):
         feasible = np.array(get_feasible_set(data, i))
-        if feasible is None or len(feasible) <= 3:
-            print "skipped"
+        try:
+            if feasible == None:
+                continue
+        except:
+            pass
+        if len(feasible) <= 3:
             continue
         weights = 1 / kde(feasible.T).evaluate(feasible.T)
         weights /= np.sum(weights)
         uniform_feasible = feasible[np.random.choice(len(feasible), p=weights, size=FEASIBLE_SIZE)][:,:4]
         new_data.append(uniform_feasible)
+        new_poses.append(poses[i])
         if i % 50 == 0:
             print i
-    return new_data
+    return new_data, new_poses
 ##############################################################
-data = np.array(preprocess_feasible(np.load('../full_sim_dataset.npy')))
+data, poses = np.array(preprocess_feasible(np.load('sim_data_translations.npy'), np.load('test_cases.npz')['pose_samples']))
 print "preprocessed"
 training_data = []
-idxs = np.random.choice(len(data), size=training_data_size)
-for i in range(training_data_size):
-    idx = idxs[i]
-    feasible = data[idx]
+for i in range(len(data)):
+    feasible = data[i]
     probs = get_distribution(feasible, cost, ALPHA)
     training_data.append(create_sample(feasible, probs))
-np.save("4joint_sim_training_data_mean0", training_data)
+np.savez("sim_translation_training_data", data=training_data, poses=poses)

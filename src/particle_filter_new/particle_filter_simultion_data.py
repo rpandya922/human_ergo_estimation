@@ -1,6 +1,8 @@
 from __future__ import division
 import sys
 sys.path.insert(0, '../')
+from openravepy import *
+import prpy
 import numpy as np
 import seaborn
 import matplotlib.pyplot as plt
@@ -21,6 +23,87 @@ ALPHA_I = 5
 ALPHA_O = 2.5
 TRUE_MEAN = np.array([0, 0, 0, 0])
 TRUE_WEIGHTS = np.array([1, 1, 1, 1])
+def load_object_desc(desc_string):
+    result = eval(desc_string)
+    for tsr_name in result['human_tsrs'].keys():
+        tsr_obj = prpy.tsr.TSR(**result['human_tsrs'][tsr_name])
+        result['human_tsrs'][tsr_name] = tsr_obj
+    for tsr_name in result['robot_tsrs'].keys():
+        tsr_obj = prpy.tsr.TSR(**result['robot_tsrs'][tsr_name])
+        result['robot_tsrs'][tsr_name] = tsr_obj
+    return result
+def load(filename):
+    return np.load(filename)
+def load_txt(filename):
+    with open(filename, 'r') as file_handle:
+        object_string = file_handle.read()
+    return load_object_desc(object_string)
+def load_environment_file(filename):
+    problem_def = load(filename)
+    human_file = problem_def['human_file'].tostring()
+    robot_file = problem_def['robot_file'].tostring()
+    object_file = problem_def['object_file'].tostring()
+    target_desc = load_txt(object_file)
+    human_base_pose = problem_def['human_base_pose']
+    robot_base_pose = problem_def['robot_base_pose']
+    object_start_pose = problem_def['object_start_pose']
+    problem_def.close()
+    return load_environment(human_file, robot_file, object_file,
+            human_base_pose, robot_base_pose, object_start_pose)
+def load_environment(human_file, robot_file, object_file,
+        human_base_pose, robot_base_pose, object_start_pose):
+    env = Environment()
+
+    #Add the human
+    human = env.ReadKinBodyXMLFile(human_file)
+    env.AddKinBody(human)
+
+    env.GetCollisionChecker().SetCollisionOptions(0)
+    manip = human.SetActiveManipulator('rightarm')
+    human.SetTransform(human_base_pose)
+
+    human.GetLink('Hips').SetVisible(False)
+    hand_joints = []
+    hand_joints.append(human.GetJointIndex('JLFing11'))
+    hand_joints.append(human.GetJointIndex('JLFing21'))
+    hand_joints.append(human.GetJointIndex('JLFing31'))
+    hand_joints.append(human.GetJointIndex('JLFing41'))
+    hand_joints.append(human.GetJointIndex('JLFing10'))
+    hand_joints.append(human.GetJointIndex('JLFing20'))
+    hand_joints.append(human.GetJointIndex('JLFing30'))
+    hand_joints.append(human.GetJointIndex('JLFing40'))
+    hand_joints.append(human.GetJointIndex('JRFing11'))
+    hand_joints.append(human.GetJointIndex('JRFing21'))
+    hand_joints.append(human.GetJointIndex('JRFing31'))
+    hand_joints.append(human.GetJointIndex('JRFing41'))
+    hand_joints.append(human.GetJointIndex('JRFing10'))
+    hand_joints.append(human.GetJointIndex('JRFing20'))
+    hand_joints.append(human.GetJointIndex('JRFing30'))
+    hand_joints.append(human.GetJointIndex('JRFing40'))
+    human.SetDOFValues([0.5]*16, hand_joints)
+
+    #Add the robot
+    with env:
+         robot = env.ReadRobotXMLFile(robot_file)
+        #  env.Add(robot,True)
+    # robot.SetActiveManipulator('leftarm')
+    #
+    # robot.SetTransform(robot_base_pose)
+    # robot.SetDOFValues([-3.14 / 2], [robot.GetJointIndex('r_shoulder_pan_joint')])
+    # pr2_rightarm_config = np.array([-1.57      ,  0.75      , -3.14      , -0.90000005,  0.        ,
+    #    -0.10000004,  0.        ])
+    # pr2_rightarm = robot.GetManipulator('rightarm')
+    # pr2_rightarm_dof = pr2_rightarm.GetArmIndices()
+    # robot.SetDOFValues(pr2_rightarm_config, pr2_rightarm_dof)
+
+    #Add the object
+    target_desc = load_txt(object_file)
+    with env:
+        target = env.ReadKinBodyXMLFile(target_desc['object_file'])
+        env.AddKinBody(target)
+        target.SetTransform(object_start_pose)
+
+    return env, human, robot, target, target_desc
 def cost(theta, theta_star, w):
     d_theta = np.square(theta - theta_star)
     return d_theta.dot(w)
@@ -140,35 +223,30 @@ def plot_feas(data):
     for (i, (theta, feasible)) in enumerate(data):
         ax = axes[i]
         ax2 = axes2[i]
-        # data_means = np.array(dist.particles)[:,:2].T
-        # kernel = kde(data_means)
-        # xx, yy = np.mgrid[-1.75:0.5:100j, -1.25:1.25:100j]
-        # positions = np.vstack([xx.ravel(), yy.ravel()])
-        # f = np.reshape(kernel(positions).T, xx.shape)
-        # cfset = ax.contourf(xx, yy, f, cmap='Greens')
-        # cset = ax.contour(xx, yy, f, colors='k')
-        # ax.clabel(cset, inline=1, fontsize=10)
+
+        ax.set_xlim(-3, 1.75)
+        ax.set_ylim(-3, 1.5)
+        ax2.set_xlim(-2, 1)
+        ax2.set_ylim(-3, 0.5)
+
         ax.scatter(feasible[:,0], feasible[:,1], c='C0')
         ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
         ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
 
-        # data_means = np.array(dist.particles)[:,2:4].T
-        # kernel = kde(data_means)
-        # xx, yy = np.mgrid[-2:1:100j, -2.5:0.5:100j]
-        # positions = np.vstack([xx.ravel(), yy.ravel()])
-        # f = np.reshape(kernel(positions).T, xx.shape)
-        # cfset = ax2.contourf(xx, yy, f, cmap='Greens')
-        # cset = ax2.contour(xx, yy, f, colors='k')
-        # ax2.clabel(cset, inline=1, fontsize=10)
         ax2.scatter(feasible[:,2], feasible[:,3], c='C0')
         ax2.scatter(theta[2], theta[3], c='C2', s=200, zorder=2)
         ax2.scatter(TRUE_MEAN[2], TRUE_MEAN[3], c='C3', s=200, zorder=2)
         plt.pause(0.2)
     fig.suptitle("Feasible sets to choose from (dim 1&2)")
     fig2.suptitle("Feasible sets to choose from (dim 3&4)")
+    plt.pause(0.2)
 #########################################################
-all_data = np.load('./4joint_sim_training_data_mean0.npy')
-# shuffle(all_data)
+f = np.load('./sim_translation_training_data.npz')
+all_data = f['data']
+poses = f['poses']
+env, human, robot, target, target_desc = load_environment_file('test_problem_def.npz')
+env.SetViewer('qtcoin')
+idxs = np.random.choice(len(all_data), size=8)
 data = all_data
 particles = []
 weights = []
@@ -185,21 +263,16 @@ particles += mins
 weights = np.ones(NUM_PARTICLES) / NUM_PARTICLES
 weights = np.array(weights) / np.sum(weights)
 dist = SetWeightsParticleDistribution(particles, weights, cost, w=TRUE_WEIGHTS, ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O)
-# (theta, feasible) = data[0]
-# dist.weights = dist.reweight(theta, feasible)
-# dist.resample()
-# dist.weights = dist.reweight(theta, feasible)
-# dist.resample()
 
 # plot_feas(data)
 # plt.show()
 def info_gain(dist, x):
-    return (x, dist.info_gain(x[1], num_boxes=20))
+    return (x, dist.info_gain(x[1], num_boxes=20), dist.expected_cost(x[1]))
 # if __name__ == '__main__':
 #     pool = mp.Pool(8)
-fig, axes = plt.subplots(nrows=5, ncols=5)
+fig, axes = plt.subplots(nrows=4, ncols=3)
 axes = np.ndarray.flatten(np.array(axes))
-fig2, axes2 = plt.subplots(nrows=5, ncols=5)
+fig2, axes2 = plt.subplots(nrows=4, ncols=3)
 axes2 = np.ndarray.flatten(np.array(axes2))
 # bar_fig, bar_axes = plt.subplots(nrows=4, ncols=3)
 # bar_axes = np.ndarray.flatten(np.array(bar_axes))
@@ -211,7 +284,7 @@ ax = axes[0]
 ax2 = axes2[0]
 data_means = np.array(dist.particles)[:,:2].T
 kernel = kde(data_means)
-xx, yy = np.mgrid[-1.75:0.5:100j, -1.25:1.25:100j]
+xx, yy = np.mgrid[-3:1.75:100j, -3:1.5:100j]
 positions = np.vstack([xx.ravel(), yy.ravel()])
 f = np.reshape(kernel(positions).T, xx.shape)
 cfset = ax.contourf(xx, yy, f, cmap='Greens')
@@ -221,7 +294,7 @@ ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
 
 data_means = np.array(dist.particles)[:,2:4].T
 kernel = kde(data_means)
-xx, yy = np.mgrid[-2:1:100j, -2.5:0.5:100j]
+xx, yy = np.mgrid[-2:1:100j, -3:0.5:100j]
 positions = np.vstack([xx.ravel(), yy.ravel()])
 f = np.reshape(kernel(positions).T, xx.shape)
 cfset = ax2.contourf(xx, yy, f, cmap='Greens')
@@ -229,13 +302,15 @@ cset = ax2.contour(xx, yy, f, colors='k')
 ax2.clabel(cset, inline=1, fontsize=10)
 ax2.scatter(TRUE_MEAN[2], TRUE_MEAN[3], c='C3', s=200, zorder=2)
 plt.pause(0.2)
-for i in range(1, 25):
+for i in range(1, 12):
     # func = partial(info_gain, dist)
     # pooled = pool.map(func, data)
     # # pooled = [func(x) for x in data]
     # print
     # expected_infos = [sample[1] for sample in pooled]
-    # max_idx = np.argmax(expected_infos)
+    # expected_costs = [sample[2] for sample in pooled]
+    # # max_idx = np.argmax(expected_infos)
+    # max_idx = np.argmin(expected_costs)
     # (theta, feasible) = pooled[max_idx][0]
     # actual_infos = []
     # ent_before = dist.entropy(num_boxes=20)
@@ -248,12 +323,14 @@ for i in range(1, 25):
     dist.weights = dist.reweight_vectorized(theta, feasible)
     dist.resample()
 
+    target.SetTransform(poses[i])
+
     ax = axes[i]
     ax2 = axes2[i]
     # bar_ax = bar_axes[i]
     data_means = np.array(dist.particles)[:,:2].T
     kernel = kde(data_means)
-    xx, yy = np.mgrid[-1.75:0.5:100j, -1.25:1.25:100j]
+    xx, yy = np.mgrid[-3:1.75:100j, -3:1.5:100j]
     positions = np.vstack([xx.ravel(), yy.ravel()])
     f = np.reshape(kernel(positions).T, xx.shape)
     cfset = ax.contourf(xx, yy, f, cmap='Greens')
