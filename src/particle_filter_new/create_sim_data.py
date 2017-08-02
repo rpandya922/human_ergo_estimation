@@ -51,11 +51,12 @@ def preprocess_feasible(data, poses):
             continue
         weights = 1 / kde(feasible.T).evaluate(feasible.T)
         weights /= np.sum(weights)
-        uniform_feasible = feasible[np.random.choice(len(feasible), p=weights, size=FEASIBLE_SIZE)][:,:4]
+        uniform_feasible = feasible[np.random.choice(len(feasible), p=weights, size=len(feasible))][:,:4]
         new_data.append(uniform_feasible)
         new_poses.append(poses[i])
-        if i % 50 == 0:
-            print i
+        print "\r%d" % i,
+        sys.stdout.flush()
+    print
     return new_data, new_poses
 ##############################################################
 data, poses = np.array(preprocess_feasible(np.load('sim_data_translations.npy'), np.load('test_cases.npz')['pose_samples']))
@@ -65,4 +66,4 @@ for i in range(len(data)):
     feasible = data[i]
     probs = get_distribution(feasible, cost, ALPHA)
     training_data.append(create_sample(feasible, probs))
-np.savez("sim_translation_training_data", data=training_data, poses=poses)
+np.savez("sim_translation_training_data_diff_sizes", data=training_data, poses=poses)
