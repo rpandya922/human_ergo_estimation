@@ -14,6 +14,7 @@ from distribution import SetWeightsParticleDistribution
 import multiprocessing as mp
 from functools import partial
 from random import shuffle
+# import scipy.misc.imsave as imsave
 #########################################################
 # CONSTANTS AND FUNCTIONS
 DOF = 4
@@ -85,17 +86,6 @@ def load_environment(human_file, robot_file, object_file,
     #Add the robot
     with env:
          robot = env.ReadRobotXMLFile(robot_file)
-        #  env.Add(robot,True)
-    # robot.SetActiveManipulator('leftarm')
-    #
-    # robot.SetTransform(robot_base_pose)
-    # robot.SetDOFValues([-3.14 / 2], [robot.GetJointIndex('r_shoulder_pan_joint')])
-    # pr2_rightarm_config = np.array([-1.57      ,  0.75      , -3.14      , -0.90000005,  0.        ,
-    #    -0.10000004,  0.        ])
-    # pr2_rightarm = robot.GetManipulator('rightarm')
-    # pr2_rightarm_dof = pr2_rightarm.GetArmIndices()
-    # robot.SetDOFValues(pr2_rightarm_config, pr2_rightarm_dof)
-
     #Add the object
     target_desc = load_txt(object_file)
     with env:
@@ -138,22 +128,25 @@ def plot_feas(data):
     fig.suptitle("Feasible sets to choose from (dim 1&2)")
     fig2.suptitle("Feasible sets to choose from (dim 3&4)")
     plt.pause(0.2)
-def plot_belief(ax, particles, ground_truth):
+def plot_belief(ax, particles, ground_truth, second=False):
     data_means = particles.T
     kernel = kde(data_means)
-    xx, yy = np.mgrid[-3:1.75:100j, -3:1.5:100j]
+    if second:
+        xx, yy = np.mgrid[-2:1:100j, -3:0.5:100j]
+    else:
+        xx, yy = np.mgrid[-3:1.75:100j, -3:1.5:100j]
     positions = np.vstack([xx.ravel(), yy.ravel()])
     f = np.reshape(kernel(positions).T, xx.shape)
     cfset = ax.contourf(xx, yy, f, cmap='Greens')
     cset = ax.contour(xx, yy, f, colors='k')
     ax.clabel(cset, inline=1, fontsize=10)
     ax.scatter(ground_truth[0], ground_truth[1], c='C3', s=200, zorder=2)
-def plot_belief_update(ax, particles, theta, feasible, ground_truth):
-    plot_belief(ax, particles, ground_truth)
+def plot_belief_update(ax, particles, theta, feasible, ground_truth, second=False):
+    plot_belief(ax, particles, ground_truth, second)
     ax.scatter(feasible[:,0], feasible[:,1], c='C0')
     ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
 #########################################################
-f = np.load('./sim_translation_training_data.npz')
+f = np.load('./sim_translation_training_data_diff_sizes.npz')
 all_data = f['data'][:15]
 poses = f['poses']
 env, human, robot, target, target_desc = load_environment_file('test_problem_def.npz')
@@ -208,7 +201,7 @@ if __name__ == '__main__':
     ax2 = axes2[0]
 
     plot_belief(ax, np.array(dist.particles)[:,:2], TRUE_MEAN[:2])
-    plot_belief(ax2, np.array(dist.particles)[:,2:], TRUE_MEAN[2:])
+    plot_belief(ax2, np.array(dist.particles)[:,2:], TRUE_MEAN[2:], second=True)
     plt.pause(0.2)
 
     for i in range(1, 12):
@@ -217,8 +210,8 @@ if __name__ == '__main__':
         print
         expected_infos = [sample[1] for sample in pooled]
         expected_costs = [sample[2] for sample in pooled]
-        max_idx = np.argmax(expected_infos)
-        # max_idx = np.argmin(expected_costs)
+        # max_idx = np.argmax(expected_infos)
+        max_idx = np.argmin(expected_costs)
         (theta, feasible) = pooled[max_idx][0]
         actual_infos = []
         ent_before = dist.entropy(num_boxes=20)
@@ -231,11 +224,11 @@ if __name__ == '__main__':
         dist.weights = dist.reweight_vectorized(theta, feasible)
         dist.resample()
 
-        target.SetTransform(poses[i])
+        target.SetTransform(poses[max_idx])
+        # target.SetTransform(poses[i])
         with env:
             inds = np.array(np.linspace(0,len(feasible)-1,15),int)
             for j,ind in enumerate(inds):
-                print ind
                 newrobot = newrobots[j]
                 env.Add(newrobot,True)
                 newrobot.SetTransform(human.GetTransform())
@@ -246,7 +239,7 @@ if __name__ == '__main__':
         ax2 = axes2[i]
         bar_ax = bar_axes[i]
         plot_belief_update(ax, np.array(dist.particles)[:,:2], theta, feasible, TRUE_MEAN)
-        plot_belief_update(ax2, np.array(dist.particles)[:,2:], theta[2:], feasible[:,2:], TRUE_MEAN[2:])
+        plot_belief_update(ax2, np.array(dist.particles)[:,2:], theta[2:], feasible[:,2:], TRUE_MEAN[2:], second=True)
         bar_ax.bar(np.arange(len(data)), expected_infos, 0.35, color='C0', label='expected info gain')
         bar_ax.bar(np.arange(len(data)) + 0.35, actual_infos, 0.35, color='C1', label='actual info gain')
         bar_ax.bar(max_idx, expected_infos[max_idx], 0.35, color='C2', label='chosen set expected info')
