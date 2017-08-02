@@ -80,17 +80,27 @@ def create_sample(obj):
     chosen = feas[chosen_idx]
     return (chosen, feas)
 ###################################################################
-data = [create_sample(create_ellipse(1, 1, 1, 1)), create_sample(create_ellipse(0, 0, 1, 2)), \
-        create_sample(create_box([1, 3], [5, 0])), create_sample(create_box([0, 1], [4, 1])), \
-        create_sample(create_ellipse(0, -2, 1, 3)), \
-        create_sample(create_box([-6, 0], [6, 0])), create_sample(create_ellipse(-3, -3, 2, 2))]
+data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
+        create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
+        create_ellipse(0, -2, 1, 3), \
+        create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2)]
+data = [create_sample(shape) for shape in data_original]
 fig, axes = plt.subplots(nrows=2, ncols=4)
-fig.suptitle("feasible sets to choose from")
+fig.suptitle("feasible sets in theta space, l1: 3, l2: 3")
 axes = np.ndarray.flatten(np.array(axes))
 for (i, (theta, feasible)) in enumerate(data):
     ax = axes[i]
     ax.set_xlim(-3.14, 3.14)
     ax.set_ylim(-3.14, 3.14)
+    ax.scatter(feasible[:,0], feasible[:,1])
+plt.pause(0.2)
+fig, axes = plt.subplots(nrows=2, ncols=4)
+fig.suptitle("'objects' in xy space")
+axes = np.ndarray.flatten(np.array(axes))
+for (i, feasible) in enumerate(data_original):
+    ax = axes[i]
+    ax.set_xlim(-6, 6)
+    ax.set_ylim(-6, 6)
     ax.scatter(feasible[:,0], feasible[:,1])
 plt.pause(0.2)
 
@@ -138,8 +148,8 @@ if __name__ == '__main__':
         print
         expected_infos = [sample[1] for sample in pooled]
         expected_costs = [sample[2] for sample in pooled]
-        # max_idx = np.argmax(expected_infos)
-        max_idx = np.argmin(expected_costs)
+        max_idx = np.argmax(expected_infos)
+        # max_idx = np.argmin(expected_costs)
         (theta, feasible) = pooled[max_idx][0]
         actual_infos = []
         ent_before = dist.entropy(num_boxes=20)
