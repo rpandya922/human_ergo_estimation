@@ -4,6 +4,7 @@ from scipy.misc import logsumexp
 from scipy.stats import gaussian_kde as kde
 import probability_estimation as pe
 from sklearn.neighbors import NearestNeighbors
+import sys
 
 h = 0.03
 # h = 0.2
@@ -238,7 +239,8 @@ class SetWeightsParticleDistribution():
             ent = d.entropy(num_boxes, axis_ranges)
             avg_ent += weight * ent
             if i % 50 == 0:
-                print i
+                print "\r%d" % i,
+                sys.stdout.flush()
         ret = self.entropy(num_boxes, axis_ranges) - avg_ent
         print str(ret) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return ret
