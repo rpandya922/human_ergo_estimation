@@ -6,8 +6,8 @@ import probability_estimation as pe
 from sklearn.neighbors import NearestNeighbors
 import sys
 
-h = 0.03
-# h = 0.2
+H = 0.03
+# H = 0.2
 class ParticleDistribution():
     def __init__(self, particles, weights, cost):
         self.NUM_PARTICLES = len(particles)
@@ -117,7 +117,7 @@ class ParticleDistribution():
         return dist.entropy(num_boxes, axis_ranges) - self.entropy(num_boxes, axis_ranges)
 
 class SetWeightsParticleDistribution():
-    def __init__(self, particles, weights, cost, w, ALPHA_I, ALPHA_O):
+    def __init__(self, particles, weights, cost, w, ALPHA_I, ALPHA_O, h=None):
         self.NUM_PARTICLES = len(particles)
         self.particles = particles
         self.weights = weights
@@ -125,6 +125,8 @@ class SetWeightsParticleDistribution():
         self.w = w
         self.ALPHA_I = ALPHA_I
         self.ALPHA_O = ALPHA_O
+        if h is None:
+            self.h = H
     def reweight_vectorized(self, theta, feasible):
         weights = np.array(self.weights)
         particles = np.array(self.particles)
@@ -157,7 +159,7 @@ class SetWeightsParticleDistribution():
 
         nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
         distances, indices = nbrs.kneighbors(feasible)
-        max_dist = np.amax(distances)
+        max_dist = min(np.amax(distances), 0.3)
         distances, indices = nbrs.kneighbors(self.particles)
         # alpha = self.ALPHA_I
         for i in range(self.NUM_PARTICLES):
@@ -183,7 +185,7 @@ class SetWeightsParticleDistribution():
         for i in range(size):
             idx = idxs[i]
             sample = self.particles[idx]
-            new_particles.append(np.random.normal(sample, h))
+            new_particles.append(np.random.normal(sample, self.h))
             # new_particles.append(sample)
         self.particles = new_particles
         self.weights = [1/size]*size
