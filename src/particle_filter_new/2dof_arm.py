@@ -58,15 +58,16 @@ def get_theta(x, y):
     theta2 = np.pi - inv_cos
     if np.isnan(inv_cos) or np.isnan(theta_prime):
         return []
-    thetas = [[theta1_partial + theta_prime, -theta2], [theta1_partial - theta_prime, theta2]]
+    # thetas = [[theta1_partial + theta_prime, -theta2], [theta1_partial - theta_prime, theta2]]
+    thetas = [[theta1_partial - theta_prime, theta2]]
     if thetas[0][0] > np.pi:
         thetas[0][0] -= two_pi
     elif thetas[0][0] < -np.pi:
         thetas[0][0] += two_pi
-    if thetas[1][0] > np.pi:
-        thetas[1][0] -= two_pi
-    elif thetas[1][0] < -np.pi:
-        thetas[1][0] += two_pi
+    # if thetas[1][0] > np.pi:
+    #     thetas[1][0] -= two_pi
+    # elif thetas[1][0] < -np.pi:
+    #     thetas[1][0] += two_pi
     return thetas
 def create_sample(obj):
     feas = []
@@ -79,30 +80,46 @@ def create_sample(obj):
     chosen_idx = np.argmax(probs)
     chosen = feas[chosen_idx]
     return (chosen, feas)
+def plot_feas(data):
+    fig, axes = plt.subplots(nrows=2, ncols=4)
+    fig.suptitle("feasible sets in theta space, l1: 3, l2: 3")
+    axes = np.ndarray.flatten(np.array(axes))
+    for (i, (theta, feasible)) in enumerate(data):
+        ax = axes[i]
+        ax.set_xlim(-3.14, 3.14)
+        ax.set_ylim(-3.14, 3.14)
+        ax.scatter(feasible[:,0], feasible[:,1])
+    plt.pause(0.2)
+    fig, axes = plt.subplots(nrows=2, ncols=4)
+    fig.suptitle("'objects' in xy space")
+    axes = np.ndarray.flatten(np.array(axes))
+    for (i, feasible) in enumerate(data_original):
+        ax = axes[i]
+        ax.set_xlim(-6, 6)
+        ax.set_ylim(-6, 6)
+        ax.scatter(feasible[:,0], feasible[:,1])
+    plt.pause(0.2)
+def plot_belief(ax, particles, ground_truth):
+    data_means = particles.T
+    kernel = kde(data_means)
+    xx, yy = np.mgrid[-5:5:100j, -5:5:100j]
+    positions = np.vstack([xx.ravel(), yy.ravel()])
+    f = np.reshape(kernel(positions).T, xx.shape)
+    cfset = ax.contourf(xx, yy, f, cmap='Greens')
+    cset = ax.contour(xx, yy, f, colors='k')
+    ax.clabel(cset, inline=1, fontsize=10)
+    ax.scatter(ground_truth[0], ground_truth[1], c='C3', s=200, zorder=2)
+def plot_belief_update(ax, particles, theta, feasible, ground_truth):
+    plot_belief(ax, particles, ground_truth)
+    ax.scatter(feasible[:,0], feasible[:,1], c='C0')
+    ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
 ###################################################################
 data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
         create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
         create_ellipse(0, -2, 1, 3), \
         create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2)]
 data = [create_sample(shape) for shape in data_original]
-fig, axes = plt.subplots(nrows=2, ncols=4)
-fig.suptitle("feasible sets in theta space, l1: 3, l2: 3")
-axes = np.ndarray.flatten(np.array(axes))
-for (i, (theta, feasible)) in enumerate(data):
-    ax = axes[i]
-    ax.set_xlim(-3.14, 3.14)
-    ax.set_ylim(-3.14, 3.14)
-    ax.scatter(feasible[:,0], feasible[:,1])
-plt.pause(0.2)
-fig, axes = plt.subplots(nrows=2, ncols=4)
-fig.suptitle("'objects' in xy space")
-axes = np.ndarray.flatten(np.array(axes))
-for (i, feasible) in enumerate(data_original):
-    ax = axes[i]
-    ax.set_xlim(-6, 6)
-    ax.set_ylim(-6, 6)
-    ax.scatter(feasible[:,0], feasible[:,1])
-plt.pause(0.2)
+plot_feas(data)
 
 particles = []
 weights = []
@@ -132,14 +149,7 @@ if __name__ == '__main__':
                  ' alpha_o: ' + str(ALPHA_O) + ' l1: ' + str(l1) + ' l2: ' +str(l2) +\
                  ' cost weights: ' + str(TRUE_WEIGHTS))
     ax = axes[0]
-    data_means = np.array(dist.particles)[:,:2].T
-    kernel = kde(data_means)
-    xx, yy = np.mgrid[-5:5:100j, -5:5:100j]
-    positions = np.vstack([xx.ravel(), yy.ravel()])
-    f = np.reshape(kernel(positions).T, xx.shape)
-    cfset = ax.contourf(xx, yy, f, cmap='Greens')
-    cset = ax.contour(xx, yy, f, colors='k')
-    ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
+    plot_belief(ax, np.array(dist.particles), TRUE_MEAN)
     plt.pause(0.1)
 
     for i in range(1, len(axes)):
@@ -162,16 +172,7 @@ if __name__ == '__main__':
         dist.resample()
 
         ax = axes[i]
-        data_means = np.array(dist.particles)[:,:2].T
-        kernel = kde(data_means)
-        xx, yy = np.mgrid[-5:5:100j, -5:5:100j]
-        positions = np.vstack([xx.ravel(), yy.ravel()])
-        f = np.reshape(kernel(positions).T, xx.shape)
-        cfset = ax.contourf(xx, yy, f, cmap='Greens')
-        cset = ax.contour(xx, yy, f, colors='k')
-        ax.scatter(feasible[:,0], feasible[:,1], label='feasible set')
-        ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
-        ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
+        plot_belief_update(ax, np.array(dist.particles), theta, feasible, TRUE_MEAN)
 
         bar_ax = bar_axes[i]
         bar_ax.bar(np.arange(len(data)), expected_infos, 0.35, color='C0', label='expected info gain')
