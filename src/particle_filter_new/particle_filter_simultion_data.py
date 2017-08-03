@@ -146,12 +146,13 @@ def plot_belief_update(ax, particles, theta, feasible, ground_truth, second=Fals
     ax.scatter(feasible[:,0], feasible[:,1], c='C0')
     ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
 #########################################################
-f = np.load('./sim_translation_training_data_diff_sizes.npz')
-all_data = f['data'][:15]
-poses = f['poses']
+f = np.load('./sim_translation_training_data_varied.npz')
+idxs = np.random.choice(len(f['data']), size=16)
+data_full = f['data_full'][idxs]
+all_data = f['data'][idxs]
+poses = f['poses'][idxs]
 env, human, robot, target, target_desc = load_environment_file('test_problem_def.npz')
 env.SetViewer('qtcoin')
-idxs = np.random.choice(len(all_data), size=8)
 data = all_data
 
 newrobots = []
@@ -165,6 +166,11 @@ for ind in range(15):
 for link in robot.GetLinks():
     for geom in link.GetGeometries():
         geom.SetTransparency(0.8)
+for (i, (theta, feasible)) in enumerate(data):
+    if len(feasible) > 1000:
+        idxs = np.random.choice(len(feasible), size=1000)
+        new_feas = feasible[idxs]
+        data[i][1] = new_feas
 
 particles = []
 weights = []
@@ -210,8 +216,8 @@ if __name__ == '__main__':
         print
         expected_infos = [sample[1] for sample in pooled]
         expected_costs = [sample[2] for sample in pooled]
-        # max_idx = np.argmax(expected_infos)
-        max_idx = np.argmin(expected_costs)
+        max_idx = np.argmax(expected_infos)
+        # max_idx = np.argmin(expected_costs)
         (theta, feasible) = pooled[max_idx][0]
         actual_infos = []
         ent_before = dist.entropy(num_boxes=20)
@@ -226,13 +232,15 @@ if __name__ == '__main__':
 
         target.SetTransform(poses[max_idx])
         # target.SetTransform(poses[i])
+        feas_full = data_full[max_idx]
+        feas_full = data_full[i]
         with env:
-            inds = np.array(np.linspace(0,len(feasible)-1,15),int)
+            inds = np.array(np.linspace(0,len(feas_full)-1,15),int)
             for j,ind in enumerate(inds):
                 newrobot = newrobots[j]
                 env.Add(newrobot,True)
                 newrobot.SetTransform(human.GetTransform())
-                newrobot.SetDOFValues(feasible[ind], human.GetActiveManipulator().GetArmIndices()[:4])
+                newrobot.SetDOFValues(feas_full[ind], human.GetActiveManipulator().GetArmIndices())
         env.UpdatePublishedBodies()
 
         ax = axes[i]
@@ -244,4 +252,5 @@ if __name__ == '__main__':
         bar_ax.bar(np.arange(len(data)) + 0.35, actual_infos, 0.35, color='C1', label='actual info gain')
         bar_ax.bar(max_idx, expected_infos[max_idx], 0.35, color='C2', label='chosen set expected info')
         plt.pause(0.2)
+        raw_input('Displaying iteration ' + str(i) + ', press <Enter> to continue:')
     plt.show()
