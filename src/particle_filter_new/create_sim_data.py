@@ -38,6 +38,7 @@ def create_sample(feasible, probs):
     idx = np.argmax(probs)
     return (feasible[idx], feasible)
 def preprocess_feasible(data, poses):
+    new_data_full = []
     new_data = []
     new_poses = []
     for i in range(data.shape[1]):
@@ -47,23 +48,30 @@ def preprocess_feasible(data, poses):
                 continue
         except:
             pass
-        if len(feasible) <= 3:
+        if len(feasible) <= 6:
             continue
-        weights = 1 / kde(feasible.T).evaluate(feasible.T)
+        # print len(feasible)
+        try:
+            weights = 1 / kde(feasible.T).evaluate(feasible.T)
+        except:
+            continue
         weights /= np.sum(weights)
-        uniform_feasible = feasible[np.random.choice(len(feasible), p=weights, size=len(feasible))][:,:4]
+        uniform_feasible_full = feasible[np.random.choice(len(feasible), p=weights, size=len(feasible))]
+        uniform_feasible = uniform_feasible_full[:,:4]
+        new_data_full.append(uniform_feasible_full)
         new_data.append(uniform_feasible)
         new_poses.append(poses[i])
         print "\r%d" % i,
         sys.stdout.flush()
     print
-    return new_data, new_poses
+    return new_data_full, new_data, new_poses
 ##############################################################
-data, poses = np.array(preprocess_feasible(np.load('sim_data_translations.npy'), np.load('test_cases.npz')['pose_samples']))
+data_full, data, poses = np.array(preprocess_feasible(np.load('sim_data_translations_varied3.npy'), np.load('test_cases_varied.npz')['pose_samples']))
 print "preprocessed"
 training_data = []
 for i in range(len(data)):
     feasible = data[i]
     probs = get_distribution(feasible, cost, ALPHA)
     training_data.append(create_sample(feasible, probs))
-np.savez("sim_translation_training_data_diff_sizes", data=training_data, poses=poses)
+np.savez("sim_translation_training_data_varied3", data_full=data_full, \
+data=training_data, poses=poses)
