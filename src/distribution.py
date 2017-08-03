@@ -127,6 +127,8 @@ class SetWeightsParticleDistribution():
         self.ALPHA_O = ALPHA_O
         if h is None:
             self.h = H
+        else:
+            self.h = h
     def reweight_vectorized(self, theta, feasible):
         weights = np.array(self.weights)
         particles = np.array(self.particles)
