@@ -69,7 +69,14 @@ def get_theta(x, y):
     # elif thetas[1][0] < -np.pi:
     #     thetas[1][0] += two_pi
     return thetas
-def create_sample(obj):
+def create_sample(feas):
+    nums = pe.prob_theta_given_lam_stable_set_weight_num(feas, TRUE_MEAN, TRUE_WEIGHTS, cost, ALPHA)
+    denom = pe.prob_theta_given_lam_stable_set_weight_denom(feas, TRUE_MEAN, TRUE_WEIGHTS, cost, ALPHA)
+    probs = np.exp(nums - denom)
+    chosen_idx = np.argmax(probs)
+    chosen = feas[chosen_idx]
+    return (chosen, feas)
+def create_sample_from_xy(obj):
     feas = []
     for (x, y) in obj:
         feas.extend(get_theta(x, y))
@@ -80,6 +87,16 @@ def create_sample(obj):
     chosen_idx = np.argmax(probs)
     chosen = feas[chosen_idx]
     return (chosen, feas)
+def plot_objects(data):
+    fig, axes = plt.subplots(nrows=2, ncols=4)
+    fig.suptitle("'objects' in xy space")
+    axes = np.ndarray.flatten(np.array(axes))
+    for (i, feasible) in enumerate(data):
+        ax = axes[i]
+        ax.set_xlim(-6, 6)
+        ax.set_ylim(-6, 6)
+        ax.scatter(feasible[:,0], feasible[:,1])
+    plt.pause(0.2)
 def plot_feas(data):
     fig, axes = plt.subplots(nrows=2, ncols=4)
     fig.suptitle("feasible sets in theta space, l1: 3, l2: 3")
@@ -88,15 +105,6 @@ def plot_feas(data):
         ax = axes[i]
         ax.set_xlim(-3.14, 3.14)
         ax.set_ylim(-3.14, 3.14)
-        ax.scatter(feasible[:,0], feasible[:,1])
-    plt.pause(0.2)
-    fig, axes = plt.subplots(nrows=2, ncols=4)
-    fig.suptitle("'objects' in xy space")
-    axes = np.ndarray.flatten(np.array(axes))
-    for (i, feasible) in enumerate(data_original):
-        ax = axes[i]
-        ax.set_xlim(-6, 6)
-        ax.set_ylim(-6, 6)
         ax.scatter(feasible[:,0], feasible[:,1])
     plt.pause(0.2)
 def plot_belief(ax, particles, ground_truth):
@@ -118,7 +126,8 @@ data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
         create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
         create_ellipse(0, -2, 1, 3), \
         create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2)]
-data = [create_sample(shape) for shape in data_original]
+data = [create_sample_from_xy(shape) for shape in data_original]
+plot_objects(data_original)
 plot_feas(data)
 
 particles = []
