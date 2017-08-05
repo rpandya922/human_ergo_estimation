@@ -14,13 +14,13 @@ from distribution import SetWeightsParticleDistribution
 import multiprocessing as mp
 from functools import partial
 from random import shuffle
-# import scipy.misc.imsave as imsave
+from sklearn.neighbors import NearestNeighbors
 #########################################################
 # CONSTANTS AND FUNCTIONS
 DOF = 4
 NUM_PARTICLES = 1001
 box_size = 0.5
-ALPHA_I = 5
+ALPHA_I = 2.5
 ALPHA_O = 2.5
 TRUE_MEAN = np.array([0, 0, 0, 0])
 TRUE_WEIGHTS = np.array([1, 1, 1, 1])
@@ -145,27 +145,75 @@ def plot_belief_update(ax, particles, theta, feasible, ground_truth, second=Fals
     plot_belief(ax, particles, ground_truth, second)
     ax.scatter(feasible[:,0], feasible[:,1], c='C0')
     ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
+def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, second=False, with_belief=False, dist=None):
+    if second:
+        xx, yy = np.mgrid[-2:1:100j, -3:0.5:100j]
+    else:
+        xx, yy = np.mgrid[-3:1.75:100j, -3:1.5:100j]
+    positions = np.vstack([xx.ravel(), yy.ravel()])
+    nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
+    distances, indices = nbrs.kneighbors(feasible)
+    max_dist = min(np.amax(distances), 0.5)
+    distances, indices = nbrs.kneighbors(positions.T)
+    def likelihood(idx, point):
+        if distances[idx][0] >= max_dist:
+            alpha = ALPHA_O
+        else:
+            alpha = ALPHA_I
+        return pe.prob_theta_given_lam_stable_set_weight_num(theta, point, TRUE_WEIGHTS[:2], cost, alpha)\
+        -pe.prob_theta_given_lam_stable_set_weight_denom(feasible, point, TRUE_WEIGHTS[:2], cost, alpha)
+    likelihoods = np.array([likelihood(idx, p) for idx, p in enumerate(positions.T)])
+    f = np.reshape(likelihoods.T, xx.shape)
+    if second:
+        ax.imshow(np.flip(f, 1).T, cmap='inferno', interpolation='nearest', extent=(-2, 1, -3, 0.5), vmin=-33, vmax=-3)
+    else:
+        ax.imshow(np.flip(f, 1).T, cmap='inferno', interpolation='nearest', extent=(-3, 1.75, -3, 1.5), vmin=-45, vmax=-1.5)
+        xx, yy = np.mgrid[-3:1.75:100j, -3:1.5:100j]
+    ax.scatter(feasible[:,0], feasible[:,1], c='C0')
+    ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
+    if with_belief:
+        data_means = np.array(dist.particles).T
+        kernel = kde(data_means)
+        xx, yy = np.mgrid[-5:5:100j, -5:5:100j]
+        positions = np.vstack([xx.ravel(), yy.ravel()])
+        f = np.reshape(kernel(positions).T, xx.shape)
+        cset = ax.contour(xx, yy, f, colors='k')
+    ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
 #########################################################
 f = np.load('./sim_translation_training_data_varied.npz')
-idxs = np.random.choice(len(f['data']), size=16)
+# idxs = np.random.choice(len(f['data']), size=25)
+idxs = [1, 2, 5, 9, 11, 18]
 data_full = f['data_full'][idxs]
 all_data = f['data'][idxs]
 poses = f['poses'][idxs]
-env, human, robot, target, target_desc = load_environment_file('test_problem_def.npz')
-env.SetViewer('qtcoin')
+# env, human, robot, target, target_desc = load_environment_file('test_problem_def.npz')
+# env.SetViewer('qtcoin')
 data = all_data
+fig, axes = plt.subplots(nrows=3, ncols=2)
+axes = np.ndarray.flatten(np.array(axes))
+fig2, axes2 = plt.subplots(nrows=3, ncols=2)
+axes2 = np.ndarray.flatten(np.array(axes2))
+fig.suptitle('dim 1&2 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
+             ' alpha_o: ' + str(ALPHA_O))
+fig2.suptitle('dim 3&4 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
+             ' alpha_o: ' + str(ALPHA_O))
+for (i, (theta, feasible)) in enumerate(data):
+    plot_likelihood_heatmap(axes[i], theta[:2], feasible[:,:2], TRUE_MEAN[:2])
+    plot_likelihood_heatmap(axes2[i], theta[2:], feasible[:,2:], TRUE_MEAN[2:], second=True)
+    plt.pause(0.1)
 
-newrobots = []
-for ind in range(15):
-    newrobot = RaveCreateRobot(env,human.GetXMLId())
-    newrobot.Clone(human,0)
-    for link in newrobot.GetLinks():
-        for geom in link.GetGeometries():
-            geom.SetTransparency(0.8)
-    newrobots.append(newrobot)
-for link in robot.GetLinks():
-    for geom in link.GetGeometries():
-        geom.SetTransparency(0.8)
+#
+# newrobots = []
+# for ind in range(15):
+#     newrobot = RaveCreateRobot(env,human.GetXMLId())
+#     newrobot.Clone(human,0)
+#     for link in newrobot.GetLinks():
+#         for geom in link.GetGeometries():
+#             geom.SetTransparency(0.8)
+#     newrobots.append(newrobot)
+# for link in robot.GetLinks():
+#     for geom in link.GetGeometries():
+#         geom.SetTransparency(0.8)
 for (i, (theta, feasible)) in enumerate(data):
     if len(feasible) > 1000:
         idxs = np.random.choice(len(feasible), size=1000)
@@ -187,7 +235,7 @@ particles += mins
 weights = np.ones(NUM_PARTICLES) / NUM_PARTICLES
 weights = np.array(weights) / np.sum(weights)
 dist = SetWeightsParticleDistribution(particles, weights, cost, w=TRUE_WEIGHTS, ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O)
-plot_feas(data)
+# plot_feas(data)
 
 def info_gain(dist, x):
     return (x, dist.info_gain(x[1], num_boxes=20), dist.expected_cost(x[1]))
@@ -230,18 +278,18 @@ if __name__ == '__main__':
         dist.weights = dist.reweight_vectorized(theta, feasible)
         dist.resample()
 
-        target.SetTransform(poses[max_idx])
-        # target.SetTransform(poses[i])
-        feas_full = data_full[max_idx]
-        feas_full = data_full[i]
-        with env:
-            inds = np.array(np.linspace(0,len(feas_full)-1,15),int)
-            for j,ind in enumerate(inds):
-                newrobot = newrobots[j]
-                env.Add(newrobot,True)
-                newrobot.SetTransform(human.GetTransform())
-                newrobot.SetDOFValues(feas_full[ind], human.GetActiveManipulator().GetArmIndices())
-        env.UpdatePublishedBodies()
+        # target.SetTransform(poses[max_idx])
+        # # target.SetTransform(poses[i])
+        # feas_full = data_full[max_idx]
+        # feas_full = data_full[i]
+        # with env:
+        #     inds = np.array(np.linspace(0,len(feas_full)-1,15),int)
+        #     for j,ind in enumerate(inds):
+        #         newrobot = newrobots[j]
+        #         env.Add(newrobot,True)
+        #         newrobot.SetTransform(human.GetTransform())
+        #         newrobot.SetDOFValues(feas_full[ind], human.GetActiveManipulator().GetArmIndices())
+        # env.UpdatePublishedBodies()
 
         ax = axes[i]
         ax2 = axes2[i]
@@ -252,5 +300,5 @@ if __name__ == '__main__':
         bar_ax.bar(np.arange(len(data)) + 0.35, actual_infos, 0.35, color='C1', label='actual info gain')
         bar_ax.bar(max_idx, expected_infos[max_idx], 0.35, color='C2', label='chosen set expected info')
         plt.pause(0.2)
-        raw_input('Displaying iteration ' + str(i) + ', press <Enter> to continue:')
+        # raw_input('Displaying iteration ' + str(i) + ', press <Enter> to continue:')
     plt.show()

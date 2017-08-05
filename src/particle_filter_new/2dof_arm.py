@@ -9,14 +9,15 @@ import probability_estimation as pe
 from distribution import SetWeightsParticleDistribution
 import multiprocessing as mp
 from functools import partial
+from sklearn.neighbors import NearestNeighbors
+from numpy.random import multivariate_normal as mvn
 ###################################################################
 # CONSTANTS/FUNCTIONS
 DOF = 2
 l1 = 3
 l2 = 3
-box_size = 0.5
 ALPHA = 10
-ALPHA_I = 2
+ALPHA_I = 1
 ALPHA_O = 1
 TRUE_MEAN = np.array([0, 0])
 TRUE_WEIGHTS = np.array([1, 1])
@@ -25,7 +26,7 @@ two_pi = 2 * np.pi
 def cost(theta, theta_star, w):
     d_theta = np.square(theta - theta_star)
     return d_theta.dot(w)
-def create_box(upper_left, lower_right):
+def create_box(upper_left, lower_right, box_size=0.5):
     feas = []
     x = upper_left[:]
     while x[1] >= lower_right[1]:
@@ -36,7 +37,7 @@ def create_box(upper_left, lower_right):
         x[1] -= box_size
     return np.unique(feas, axis=0)
 def create_ellipse(x0, y0, a, b):
-    rand = np.random.uniform(0, 1, size=(1000, 2)) * np.array([x0 + 2*a, y0 + 2*b])
+    rand = np.random.uniform(0, 1, size=(1000, 2)) * np.array([2*a, 2*b])
     rand += np.array([x0 - a, y0 - b])
     feas = []
     vals = np.sum(((rand - np.array([x0, y0])) / np.array([a, b])) ** 2, axis=1)
@@ -103,8 +104,8 @@ def plot_feas(data):
     axes = np.ndarray.flatten(np.array(axes))
     for (i, (theta, feasible)) in enumerate(data):
         ax = axes[i]
-        ax.set_xlim(-3.14, 3.14)
-        ax.set_ylim(-3.14, 3.14)
+        ax.set_xlim(-3.6, 3.6)
+        ax.set_ylim(-3.6, 3.6)
         ax.scatter(feasible[:,0], feasible[:,1])
     plt.pause(0.2)
 def plot_belief(ax, particles, ground_truth):
@@ -115,20 +116,67 @@ def plot_belief(ax, particles, ground_truth):
     f = np.reshape(kernel(positions).T, xx.shape)
     cfset = ax.contourf(xx, yy, f, cmap='Greens')
     cset = ax.contour(xx, yy, f, colors='k')
-    ax.clabel(cset, inline=1, fontsize=10)
+    # ax.clabel(cset, inline=1, fontsize=10)
     ax.scatter(ground_truth[0], ground_truth[1], c='C3', s=200, zorder=2)
 def plot_belief_update(ax, particles, theta, feasible, ground_truth):
     plot_belief(ax, particles, ground_truth)
     ax.scatter(feasible[:,0], feasible[:,1], c='C0')
     ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
+def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False, dist=None):
+    xx, yy = np.mgrid[-5:5:100j, -5:5:100j]
+    positions = np.vstack([xx.ravel(), yy.ravel()])
+    nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
+    distances, indices = nbrs.kneighbors(feasible)
+    max_dist = min(np.amax(distances), 0.5)
+    distances, indices = nbrs.kneighbors(positions.T)
+    def likelihood(idx, point):
+        if distances[idx][0] >= max_dist:
+            alpha = ALPHA_O
+        else:
+            alpha = ALPHA_I
+        return pe.prob_theta_given_lam_stable_set_weight_num(theta, point, TRUE_WEIGHTS, cost, alpha)\
+        -pe.prob_theta_given_lam_stable_set_weight_denom(feasible, point, TRUE_WEIGHTS, cost, alpha)
+    likelihoods = np.array([likelihood(idx, p) for idx, p in enumerate(positions.T)])
+    print np.amin(likelihoods)
+    print "max: " + str(np.amax(likelihoods))
+    f = np.reshape(likelihoods.T, xx.shape)
+    ax.imshow(np.flip(f, 1).T, cmap='inferno', interpolation='nearest', extent=(-5, 5, -5, 5), vmin=-70, vmax=0)
+    ax.scatter(feasible[:,0], feasible[:,1], c='C0')
+    ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
+    if with_belief:
+        data_means = np.array(dist.particles).T
+        kernel = kde(data_means)
+        xx, yy = np.mgrid[-5:5:100j, -5:5:100j]
+        positions = np.vstack([xx.ravel(), yy.ravel()])
+        f = np.reshape(kernel(positions).T, xx.shape)
+        cset = ax.contour(xx, yy, f, colors='k')
+    ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
 ###################################################################
-data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
-        create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
-        create_ellipse(0, -2, 1, 3), \
-        create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2)]
-data = [create_sample_from_xy(shape) for shape in data_original]
-plot_objects(data_original)
-plot_feas(data)
+# data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-3, -1], [3, -1]),\
+#                  create_box([-1, 3], [-1, -3])]
+# data_original = [create_box([-3, 2.5], [0, 1.5]), create_box([-3, 1], [0, 0]),\
+#                  create_box([-3, -0.5], [0, -1.5]), create_box([-3, -2], [0, -3]),\
+#                  create_box([0.5, 2.5], [3.5, 1.5]), create_box([0.5, 1], [3.5, 0]),\
+#                  create_box([0.5, -0.5], [3.5, -1.5]), create_box([0.5, -2], [3.5, -3])]
+# data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-1, 3], [-1, -3]),\
+#                  create_ellipse(0, 2.5, 1, 2), create_box([-3, 2.5], [0, 1.5]),\
+#                  create_ellipse(0, 0, 2, 2), create_box([-3, 2.5], [0, 1.5], 0.1),\
+#                  create_ellipse(0, 1, 1, 2), create_ellipse(-1, 0, 1, 2)]
+cov = np.array([[0.1, 0], [0, 0.1]])
+data_original = [ create_box([-2, -2], [3, -2]), create_box([-1, 3], [-1, -3], 0.1),\
+                 create_box([-1, 3], [-1, -3], 0.5), np.array([[3, 3], [-3, 2]]),\
+                 np.vstack((mvn([3, 3], cov, 10), mvn([-3, 2], cov, 10))),\
+                 np.vstack((mvn([3, 3], cov, 10), mvn([-3, 2], cov, 10), mvn([0, -3], cov, 10))),\
+                 create_box([0, 3], [2.5, 1], 0.1), create_box([0, 3], [2.5, 1], 0.5),\
+                 create_box([0, 3], [4.5, 2])]
+data = [create_sample(feas) for feas in data_original]
+# data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
+#         create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
+#         create_ellipse(0, -2, 1, 3), \
+#         create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2)]
+# data = [create_sample_from_xy(shape) for shape in data_original]
+# plot_objects(data_original)
+# plot_feas(data)
 
 particles = []
 weights = []
@@ -144,7 +192,22 @@ particles *= ranges
 particles += mins
 weights = np.ones(NUM_PARTICLES) / NUM_PARTICLES
 weights = np.array(weights) / np.sum(weights)
-dist = SetWeightsParticleDistribution(particles, weights, cost, w=TRUE_WEIGHTS, ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O)
+dist = SetWeightsParticleDistribution(particles, weights, cost, w=TRUE_WEIGHTS, \
+ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=0.08)
+
+fig, axes = plt.subplots(nrows=3, ncols=3)
+axes = np.ndarray.flatten(np.array(axes))
+# ax = axes[0]
+# data_means = np.array(dist.particles).T
+# kernel = kde(data_means)
+# xx, yy = np.mgrid[-5:5:100j, -5:5:100j]
+# positions = np.vstack([xx.ravel(), yy.ravel()])
+# f = np.reshape(kernel(positions).T, xx.shape)
+# cset = ax.contour(xx, yy, f, colors='k')
+for (i, (theta, feasible)) in enumerate(data):
+    ax = axes[i]
+    plot_likelihood_heatmap(ax, theta, feasible, TRUE_MEAN)
+    plt.pause(0.1)
 
 def info_gain(dist, x):
     return (x, dist.info_gain(x[1], num_boxes=20), dist.expected_cost(x[1]))

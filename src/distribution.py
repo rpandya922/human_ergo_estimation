@@ -161,7 +161,7 @@ class SetWeightsParticleDistribution():
 
         nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
         distances, indices = nbrs.kneighbors(feasible)
-        max_dist = min(np.amax(distances), 0.3)
+        max_dist = min(np.amax(distances), 0.5)
         distances, indices = nbrs.kneighbors(self.particles)
         # alpha = self.ALPHA_I
         for i in range(self.NUM_PARTICLES):
@@ -224,7 +224,7 @@ class SetWeightsParticleDistribution():
         # right = np.amax(feasible)
         nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
         distances, indices = nbrs.kneighbors(feasible)
-        max_dist = np.amax(distances)
+        max_dist = min(np.amax(distances), 0.5)
         distances, indices = nbrs.kneighbors(self.particles)
         for i in range(self.NUM_PARTICLES):
             particle = self.particles[i]
