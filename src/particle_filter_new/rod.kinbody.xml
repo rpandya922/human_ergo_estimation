@@ -1,0 +1,7 @@
+<KinBody name="test">
+  <body name="b0">
+    <geom type="box">
+      <extents>0.4 0.02 0.02</extents>
+    </geom>
+  </body>
+</KinBody>

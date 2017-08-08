@@ -180,40 +180,55 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, second=False, wit
         cset = ax.contour(xx, yy, f, colors='k')
     ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
 #########################################################
-f = np.load('./sim_translation_training_data_varied.npz')
-# idxs = np.random.choice(len(f['data']), size=25)
-idxs = [1, 2, 5, 9, 11, 18]
+f = np.load('./sim_rod_training_data.npz')
+idxs = np.random.choice(len(f['data']), size=25)
+# print idxs
+# idxs = [270, 281, 17, 3, 257, 160, 2]
 data_full = f['data_full'][idxs]
 all_data = f['data'][idxs]
 poses = f['poses'][idxs]
-# env, human, robot, target, target_desc = load_environment_file('test_problem_def.npz')
-# env.SetViewer('qtcoin')
+env, human, robot, target, target_desc = load_environment_file('rod_problem_def.npz')
+env.SetViewer('qtcoin')
 data = all_data
-fig, axes = plt.subplots(nrows=3, ncols=2)
+fig, axes = plt.subplots(nrows=5, ncols=5)
 axes = np.ndarray.flatten(np.array(axes))
-fig2, axes2 = plt.subplots(nrows=3, ncols=2)
+fig2, axes2 = plt.subplots(nrows=5, ncols=5)
 axes2 = np.ndarray.flatten(np.array(axes2))
 fig.suptitle('dim 1&2 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
              ' alpha_o: ' + str(ALPHA_O))
 fig2.suptitle('dim 3&4 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
              ' alpha_o: ' + str(ALPHA_O))
+
+newrobots = []
+for ind in range(15):
+    newrobot = RaveCreateRobot(env,human.GetXMLId())
+    newrobot.Clone(human,0)
+    for link in newrobot.GetLinks():
+        for geom in link.GetGeometries():
+            geom.SetTransparency(0.8)
+    newrobots.append(newrobot)
+for link in robot.GetLinks():
+    for geom in link.GetGeometries():
+        geom.SetTransparency(0.8)
 for (i, (theta, feasible)) in enumerate(data):
+# for (i, idx) in enumerate(idxs):
+    # theta, feasible = data[idx]
     plot_likelihood_heatmap(axes[i], theta[:2], feasible[:,:2], TRUE_MEAN[:2])
     plot_likelihood_heatmap(axes2[i], theta[2:], feasible[:,2:], TRUE_MEAN[2:], second=True)
+    target.SetTransform(poses[i])
+    feas_full = data_full[i]
+    with env:
+        inds = np.array(np.linspace(0,len(feas_full)-1,15),int)
+        for j,ind in enumerate(inds):
+            newrobot = newrobots[j]
+            env.Add(newrobot,True)
+            newrobot.SetTransform(human.GetTransform())
+            newrobot.SetDOFValues(feas_full[ind], human.GetActiveManipulator().GetArmIndices())
+    env.UpdatePublishedBodies()
     plt.pause(0.1)
-
-#
-# newrobots = []
-# for ind in range(15):
-#     newrobot = RaveCreateRobot(env,human.GetXMLId())
-#     newrobot.Clone(human,0)
-#     for link in newrobot.GetLinks():
-#         for geom in link.GetGeometries():
-#             geom.SetTransparency(0.8)
-#     newrobots.append(newrobot)
-# for link in robot.GetLinks():
-#     for geom in link.GetGeometries():
-#         geom.SetTransparency(0.8)
+    # raw_input('Displaying pose ' + str(i) + ', press <Enter> to continue:')
+plt.show()
+1/0
 for (i, (theta, feasible)) in enumerate(data):
     if len(feasible) > 1000:
         idxs = np.random.choice(len(feasible), size=1000)
@@ -278,18 +293,18 @@ if __name__ == '__main__':
         dist.weights = dist.reweight_vectorized(theta, feasible)
         dist.resample()
 
-        # target.SetTransform(poses[max_idx])
-        # # target.SetTransform(poses[i])
-        # feas_full = data_full[max_idx]
+        target.SetTransform(poses[max_idx])
+        # target.SetTransform(poses[i])
+        feas_full = data_full[max_idx]
         # feas_full = data_full[i]
-        # with env:
-        #     inds = np.array(np.linspace(0,len(feas_full)-1,15),int)
-        #     for j,ind in enumerate(inds):
-        #         newrobot = newrobots[j]
-        #         env.Add(newrobot,True)
-        #         newrobot.SetTransform(human.GetTransform())
-        #         newrobot.SetDOFValues(feas_full[ind], human.GetActiveManipulator().GetArmIndices())
-        # env.UpdatePublishedBodies()
+        with env:
+            inds = np.array(np.linspace(0,len(feas_full)-1,15),int)
+            for j,ind in enumerate(inds):
+                newrobot = newrobots[j]
+                env.Add(newrobot,True)
+                newrobot.SetTransform(human.GetTransform())
+                newrobot.SetDOFValues(feas_full[ind], human.GetActiveManipulator().GetArmIndices())
+        env.UpdatePublishedBodies()
 
         ax = axes[i]
         ax2 = axes2[i]
@@ -300,5 +315,5 @@ if __name__ == '__main__':
         bar_ax.bar(np.arange(len(data)) + 0.35, actual_infos, 0.35, color='C1', label='actual info gain')
         bar_ax.bar(max_idx, expected_infos[max_idx], 0.35, color='C2', label='chosen set expected info')
         plt.pause(0.2)
-        # raw_input('Displaying iteration ' + str(i) + ', press <Enter> to continue:')
+        raw_input('Displaying iteration ' + str(i) + ', press <Enter> to continue:')
     plt.show()
