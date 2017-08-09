@@ -24,6 +24,8 @@ ALPHA_I = 2.5
 ALPHA_O = 2.5
 TRUE_MEAN = np.array([0, 0, 0, 0])
 TRUE_WEIGHTS = np.array([1, 1, 1, 1])
+all_vars_dim1 = []
+all_vars_dim2 = []
 def load_object_desc(desc_string):
     result = eval(desc_string)
     for tsr_name in result['human_tsrs'].keys():
@@ -163,11 +165,18 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, second=False, wit
         return pe.prob_theta_given_lam_stable_set_weight_num(theta, point, TRUE_WEIGHTS[:2], cost, alpha)\
         -pe.prob_theta_given_lam_stable_set_weight_denom(feasible, point, TRUE_WEIGHTS[:2], cost, alpha)
     likelihoods = np.array([likelihood(idx, p) for idx, p in enumerate(positions.T)])
+    variance = np.var(likelihoods)
     f = np.reshape(likelihoods.T, xx.shape)
     if second:
-        ax.imshow(np.flip(f, 1).T, cmap='inferno', interpolation='nearest', extent=(-2, 1, -3, 0.5), vmin=-33, vmax=-3)
+        # print np.amin(likelihoods)
+        # print "max: " + str(np.amax(likelihoods))
+        ax.imshow(np.flip(f, 1).T, cmap='inferno', interpolation='nearest', extent=(-2, 1, -3, 0.5), vmin=-29.8, vmax=-0.9)
+        all_vars_dim2.append(variance)
     else:
-        ax.imshow(np.flip(f, 1).T, cmap='inferno', interpolation='nearest', extent=(-3, 1.75, -3, 1.5), vmin=-45, vmax=-1.5)
+        # print np.amin(likelihoods)
+        # print "max: " + str(np.amax(likelihoods))
+        ax.imshow(np.flip(f, 1).T, cmap='inferno', interpolation='nearest', extent=(-3, 1.75, -3, 1.5), vmin=-54.6, vmax=-1.1)
+        all_vars_dim1.append(variance)
         xx, yy = np.mgrid[-3:1.75:100j, -3:1.5:100j]
     ax.scatter(feasible[:,0], feasible[:,1], c='C0')
     ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
@@ -179,25 +188,25 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, second=False, wit
         f = np.reshape(kernel(positions).T, xx.shape)
         cset = ax.contour(xx, yy, f, colors='k')
     ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
+    ax.set_title('variance: %0.2f, size: %d' % (variance, len(feasible)))
 #########################################################
-f = np.load('./sim_rod_training_data.npz')
-idxs = np.random.choice(len(f['data']), size=25)
-# print idxs
+# f = np.load('./sim_rod_training_data.npz')
+f = np.load('./sim_translation_training_data_varied.npz')
+# idxs = np.random.choice(len(f['data']), size=25)
+idxs = list(range(25))
+print idxs
 # idxs = [270, 281, 17, 3, 257, 160, 2]
+# idxs = [0,1,2,3,4,5,6,7]
 data_full = f['data_full'][idxs]
 all_data = f['data'][idxs]
 poses = f['poses'][idxs]
-env, human, robot, target, target_desc = load_environment_file('rod_problem_def.npz')
+env, human, robot, target, target_desc = load_environment_file('rod_full_problem_def.npz')
 env.SetViewer('qtcoin')
-data = all_data
+data = all_data[:25]
 fig, axes = plt.subplots(nrows=5, ncols=5)
 axes = np.ndarray.flatten(np.array(axes))
 fig2, axes2 = plt.subplots(nrows=5, ncols=5)
 axes2 = np.ndarray.flatten(np.array(axes2))
-fig.suptitle('dim 1&2 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
-             ' alpha_o: ' + str(ALPHA_O))
-fig2.suptitle('dim 3&4 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
-             ' alpha_o: ' + str(ALPHA_O))
 
 newrobots = []
 for ind in range(15):
@@ -227,6 +236,11 @@ for (i, (theta, feasible)) in enumerate(data):
     env.UpdatePublishedBodies()
     plt.pause(0.1)
     # raw_input('Displaying pose ' + str(i) + ', press <Enter> to continue:')
+fig.suptitle('dim 1&2 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
+             ' alpha_o: ' + str(ALPHA_O) + 'avg var: ' + str(np.average(all_vars_dim1)))
+fig2.suptitle('dim 3&4 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
+             ' alpha_o: ' + str(ALPHA_O) + 'avg var: ' + str(np.average(all_vars_dim2)))
+
 plt.show()
 1/0
 for (i, (theta, feasible)) in enumerate(data):
