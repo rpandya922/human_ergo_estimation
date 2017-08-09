@@ -272,3 +272,108 @@ class SetWeightsParticleDistribution():
         print str(avg) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return avg
 
+class SetMeanParticleDistribution():
+    def __init__(self, particles, weights, cost, m, ALPHA_I, ALPHA_O, h=None):
+        self.NUM_PARTICLES = len(particles)
+        self.particles = particles
+        self.weights = weights
+        self.cost = cost
+        self.m = m
+        self.ALPHA_I = ALPHA_I
+        self.ALPHA_O = ALPHA_O
+        if h is None:
+            self.h = H
+        else:
+            self.h = h
+    def reweight(self, theta, feasible):
+        weights = np.array(self.weights)
+        mult = np.zeros(self.NUM_PARTICLES)
+        nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
+        distances, indices = nbrs.kneighbors(feasible)
+        max_dist = min(np.amax(distances), 0.5)
+        distances, indices = nbrs.kneighbors(self.particles)
+        for i in range(self.NUM_PARTICLES):
+            particle = self.particles[i]
+            if distances[i][0] >= max_dist:
+                alpha = self.ALPHA_O
+            else:
+                alpha = self.ALPHA_I
+            mult[i] = pe.prob_theta_given_lam_stable_set_weight_num(theta, self.m, particle, self.cost, alpha)
+            mult[i] -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, particle, self.cost, alpha)
+        mult = np.exp(mult)
+        weights *= mult
+        return weights / np.sum(weights)
+    def resample(self, size=None):
+        if size is None:
+            size = self.NUM_PARTICLES
+        new_particles = []
+        idxs = np.random.choice(self.NUM_PARTICLES, size=size, p=self.weights)
+        for i in range(size):
+            idx = idxs[i]
+            sample = self.particles[idx]
+            new_particles.append(np.random.normal(sample, self.h))
+            # new_particles.append(sample)
+        self.particles = new_particles
+        self.weights = [1/size]*size
+        self.NUM_PARTICLES = size
+        self.particles = self.particles / np.linalg.norm(self.particles, axis=1).reshape(-1, 1)
+    def neg_log_likelihood(self, data):
+        total = 0
+        for (i, particle) in enumerate(self.particles):
+            ll = 0
+            for (theta, feasible) in data:
+                ll += pe.prob_theta_given_lam_stable_set_weight_num(theta, self.m, particle, self.cost, 1)
+                ll -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, particle, self.cost, 1)
+            total += (ll * self.weights[i])
+        return -total
+    def entropy(self, num_boxes=10, axis_ranges=None):
+        if axis_ranges is None:
+            axis_ranges = np.array([3]*len(self.particles[0]))
+        box_sizes = axis_ranges / num_boxes
+        discretized = np.round(np.array(self.particles) / box_sizes) * box_sizes
+        counts = {}
+        for i in range(self.NUM_PARTICLES):
+            particle = discretized[i]
+            weight = self.weights[i]
+            try:
+                counts[tuple(particle)] += weight
+            except:
+                counts[tuple(particle)] = weight
+        vals = np.array(counts.values()) / np.sum(counts.values())
+        return -np.sum(vals * np.log2(vals))
+    def info_gain(self, feasible, num_boxes=10, axis_ranges=None):
+        new_weights = np.zeros(self.NUM_PARTICLES)
+        avg_ent = 0
+        nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(feasible)
+        distances, indices = nbrs.kneighbors(feasible)
+        max_dist = min(np.amax(distances), 0.5)
+        distances, indices = nbrs.kneighbors(self.particles)
+        for i in range(self.NUM_PARTICLES):
+            particle = self.particles[i]
+            weight = self.weights[i]
+            if distances[i][0] >= max_dist:
+                alpha = self.ALPHA_O
+            else:
+                alpha = self.ALPHA_I
+            theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, self.w, particle, self.cost, alpha))
+            weights = self.reweight(theta, feasible)
+            d = SetWeightsParticleDistribution(self.particles, weights, self.cost, self.m, self.ALPHA_I, self.ALPHA_O)
+            ent = d.entropy(num_boxes, axis_ranges)
+            avg_ent += weight * ent
+            if i % 50 == 0:
+                print "\r%d" % i,
+                sys.stdout.flush()
+        ret = self.entropy(num_boxes, axis_ranges) - avg_ent
+        print str(ret) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
+        return ret
+    def expected_cost(self, feasible):
+        new_weights = np.zeros(self.NUM_PARTICLES)
+        avg_cost = 0
+        alpha = self.ALPHA_I
+        for i in range(self.NUM_PARTICLES):
+            particle = self.particles[i]
+            weight = self.weights[i]
+            theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, self.w, particle, self.cost, alpha))
+            avg_cost += weight * self.cost(theta, self.w, particle)
+        print str(avg_cost) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
+        return avg_cost
