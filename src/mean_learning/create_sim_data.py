@@ -57,7 +57,8 @@ def preprocess_feasible(data, poses):
             continue
         weights /= np.sum(weights)
         uniform_feasible_full = feasible[np.random.choice(len(feasible), p=weights,\
-        size=min(1000, len(feasible)))]
+        size=len(feasible))]
+        # size=min(1000, len(feasible)))]
         uniform_feasible = uniform_feasible_full[:,:4]
         new_data_full.append(uniform_feasible_full)
         new_data.append(uniform_feasible)
@@ -67,12 +68,12 @@ def preprocess_feasible(data, poses):
     print
     return new_data_full, new_data, new_poses
 ##############################################################
-data_full, data, poses = np.array(preprocess_feasible(np.load('sim_data_rod.npy'), np.load('rod_full_cases.npz')['pose_samples']))
+data_full, data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
 print "preprocessed"
 training_data = []
 for i in range(len(data)):
     feasible = data[i]
     probs = get_distribution(feasible, cost, ALPHA)
     training_data.append(create_sample(feasible, probs))
-np.savez("sim_rod_training_data", data_full=data_full, \
+np.savez("../data/sim_rod_training_data", data_full=data_full, \
 data=training_data, poses=poses)

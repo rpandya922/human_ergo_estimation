@@ -152,8 +152,8 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False
         cset = ax.contour(xx, yy, f, colors='k')
     ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
 ###################################################################
-# data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-3, -1], [3, -1]),\
-#                  create_box([-1, 3], [-1, -3])]
+data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-3, -1], [3, -1]),\
+                 create_box([-1, 3], [-1, -3])]
 # data_original = [create_box([-3, 2.5], [0, 1.5]), create_box([-3, 1], [0, 0]),\
 #                  create_box([-3, -0.5], [0, -1.5]), create_box([-3, -2], [0, -3]),\
 #                  create_box([0.5, 2.5], [3.5, 1.5]), create_box([0.5, 1], [3.5, 0]),\
@@ -162,7 +162,7 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False
 #                  create_ellipse(0, 2.5, 1, 2), create_box([-3, 2.5], [0, 1.5]),\
 #                  create_ellipse(0, 0, 2, 2), create_box([-3, 2.5], [0, 1.5], 0.1),\
 #                  create_ellipse(0, 1, 1, 2), create_ellipse(-1, 0, 1, 2)]
-cov = np.array([[0.1, 0], [0, 0.1]])
+# cov = np.array([[0.1, 0], [0, 0.1]])
 data_original = [ create_box([-2, -2], [3, -2]), create_box([-1, 3], [-1, -3], 0.1),\
                  create_box([-1, 3], [-1, -3], 0.5), np.array([[3, 3], [-3, 2]]),\
                  np.vstack((mvn([3, 3], cov, 10), mvn([-3, 2], cov, 10))),\

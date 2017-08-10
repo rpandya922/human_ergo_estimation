@@ -181,18 +181,23 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, second=False, wit
     ax.scatter(feasible[:,0], feasible[:,1], c='C0')
     ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
     if with_belief:
-        data_means = np.array(dist.particles).T
-        kernel = kde(data_means)
-        xx, yy = np.mgrid[-5:5:100j, -5:5:100j]
+        if second:
+            data_means = np.array(dist.particles)[:,2:].T
+            kernel = kde(data_means)
+            xx, yy = np.mgrid[-2:1:100j, -3:0.5:100j]
+        else:
+            data_means = np.array(dist.particles)[:,:2].T
+            kernel = kde(data_means)
+            xx, yy = np.mgrid[-3:1.75:100j, -3:1.5:100j]
         positions = np.vstack([xx.ravel(), yy.ravel()])
         f = np.reshape(kernel(positions).T, xx.shape)
         cset = ax.contour(xx, yy, f, colors='k')
     ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
     ax.set_title('variance: %0.2f, size: %d' % (variance, len(feasible)))
 #########################################################
-# f = np.load('./sim_rod_training_data.npz')
-f = np.load('./sim_translation_training_data_varied.npz')
-# idxs = np.random.choice(len(f['data']), size=25)
+f = np.load('../data/sim_rod_training_data.npz')
+# f = np.load('./sim_translation_training_data_varied.npz')
+# idxs = np.random.choice(len(f['data']), size=8)
 idxs = list(range(25))
 print idxs
 # idxs = [270, 281, 17, 3, 257, 160, 2]
@@ -200,9 +205,9 @@ print idxs
 data_full = f['data_full'][idxs]
 all_data = f['data'][idxs]
 poses = f['poses'][idxs]
-env, human, robot, target, target_desc = load_environment_file('rod_full_problem_def.npz')
+env, human, robot, target, target_desc = load_environment_file('../data/rod_full_problem_def.npz')
 env.SetViewer('qtcoin')
-data = all_data[:25]
+data = all_data
 fig, axes = plt.subplots(nrows=5, ncols=5)
 axes = np.ndarray.flatten(np.array(axes))
 fig2, axes2 = plt.subplots(nrows=5, ncols=5)
@@ -234,12 +239,18 @@ for (i, (theta, feasible)) in enumerate(data):
             newrobot.SetTransform(human.GetTransform())
             newrobot.SetDOFValues(feas_full[ind], human.GetActiveManipulator().GetArmIndices())
     env.UpdatePublishedBodies()
-    plt.pause(0.1)
-    # raw_input('Displaying pose ' + str(i) + ', press <Enter> to continue:')
+    plt.pause(0.01)
+    raw_input('Displaying pose ' + str(i) + ', press <Enter> to continue:')
 fig.suptitle('dim 1&2 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
              ' alpha_o: ' + str(ALPHA_O) + 'avg var: ' + str(np.average(all_vars_dim1)))
 fig2.suptitle('dim 3&4 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
              ' alpha_o: ' + str(ALPHA_O) + 'avg var: ' + str(np.average(all_vars_dim2)))
+fig, axes = plt.subplots(nrows=1, ncols=2)
+axes = np.ndarray.flatten(np.array(axes))
+ax = axes[0]
+ax.hist(all_vars_dim1, range=(0,140), normed=True)
+ax = axes[1]
+ax.hist(all_vars_dim2, range=(0, 40), normed=True)
 
 plt.show()
 1/0
@@ -323,8 +334,10 @@ if __name__ == '__main__':
         ax = axes[i]
         ax2 = axes2[i]
         bar_ax = bar_axes[i]
-        plot_belief_update(ax, np.array(dist.particles)[:,:2], theta, feasible, TRUE_MEAN)
-        plot_belief_update(ax2, np.array(dist.particles)[:,2:], theta[2:], feasible[:,2:], TRUE_MEAN[2:], second=True)
+        # plot_belief_update(ax, np.array(dist.particles)[:,:2], theta, feasible, TRUE_MEAN)
+        # plot_belief_update(ax2, np.array(dist.particles)[:,2:], theta[2:], feasible[:,2:], TRUE_MEAN[2:], second=True)
+        plot_likelihood_heatmap(ax, theta[:2], feasible[:,:2], TRUE_MEAN[:2], second=False, with_belief=True, dist=dist)
+        plot_likelihood_heatmap(ax2, theta[2:], feasible[:,2:], TRUE_MEAN[2:], second=True, with_belief=True, dist=dist)
         bar_ax.bar(np.arange(len(data)), expected_infos, 0.35, color='C0', label='expected info gain')
         bar_ax.bar(np.arange(len(data)) + 0.35, actual_infos, 0.35, color='C1', label='actual info gain')
         bar_ax.bar(max_idx, expected_infos[max_idx], 0.35, color='C2', label='chosen set expected info')
