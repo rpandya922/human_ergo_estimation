@@ -355,7 +355,7 @@ class SetMeanParticleDistribution():
                 alpha = self.ALPHA_O
             else:
                 alpha = self.ALPHA_I
-            theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, self.w, particle, self.cost, alpha))
+            theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, self.m, particle, self.cost, alpha))
             weights = self.reweight(theta, feasible)
             d = SetWeightsParticleDistribution(self.particles, weights, self.cost, self.m, self.ALPHA_I, self.ALPHA_O)
             ent = d.entropy(num_boxes, axis_ranges)
@@ -373,7 +373,7 @@ class SetMeanParticleDistribution():
         for i in range(self.NUM_PARTICLES):
             particle = self.particles[i]
             weight = self.weights[i]
-            theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, self.w, particle, self.cost, alpha))
-            avg_cost += weight * self.cost(theta, self.w, particle)
+            theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, self.m, particle, self.cost, alpha))
+            avg_cost += weight * self.cost(theta, self.m, particle)
         print str(avg_cost) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return avg_cost
