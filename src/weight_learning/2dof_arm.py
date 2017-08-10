@@ -12,7 +12,7 @@ import multiprocessing as mp
 from functools import partial
 from sklearn.neighbors import NearestNeighbors
 from numpy.random import multivariate_normal as mvn
-import plotting_utils as pu
+import utils as u
 ###################################################################
 # CONSTANTS/FUNCTIONS
 DOF = 2
@@ -39,19 +39,19 @@ def cost(theta, theta_star, w):
 #                  create_line([1, 0], [0, 1]), create_line([-1, 2], [2, -1]),\
 #                  create_line([1, 3], [-3, -1]), np.array([[1, 3], [-3, -1]]),\
 #                  create_line([-2, -2], [2, -2])]
-data_original = [np.array([[1, 0], [0, 1]]), pu.create_line([1, 0], [0, 1]),\
-                 pu.create_line([-1, 2], [2, -1]), pu.create_line([-2, 0], [0, 3]),\
-                 pu.create_line([-1, -1], [1, -1]), pu.create_box([1, 1], [1, -1], 0.1),\
-                 pu.create_line([-3, 1], [1, -3]), pu.create_line([-1, -5], [5, 1])]
-data = [pu.create_sample(feas) for feas in data_original]
-pu.plot_feas(data)
-# data_original = [pu.create_ellipse(1, 1, 1, 1), pu.create_ellipse(0, 0, 1, 2), \
-#         pu.create_box([1, 3], [5, 0]), pu.create_box([0, 1], [4, 1]), \
-#         pu.create_ellipse(0, -2, 1, 3), \
-#         pu.create_box([-6, 0], [6, 0]), pu.create_ellipse(-3, -3, 2, 2)]
-# data = [pu.create_sample_from_xy(shape) for shape in data_original]
-# pu.plot_objects(data_original)
-# pu.plot_feas(data)
+data_original = [np.array([[1, 0], [0, 1]]), u.create_line([1, 0], [0, 1]),\
+                 u.create_line([-1, 2], [2, -1]), u.create_line([-2, 0], [0, 3]),\
+                 u.create_line([-1, -1], [1, -1]), u.create_box([1, 1], [1, -1], 0.1),\
+                 u.create_line([-3, 1], [1, -3]), u.create_line([-1, -5], [5, 1])]
+data = [u.create_sample(feas) for feas in data_original]
+u.plot_feas(data)
+# data_original = [u.create_ellipse(1, 1, 1, 1), u.create_ellipse(0, 0, 1, 2), \
+#         u.create_box([1, 3], [5, 0]), u.create_box([0, 1], [4, 1]), \
+#         u.create_ellipse(0, -2, 1, 3), \
+#         u.create_box([-6, 0], [6, 0]), u.create_ellipse(-3, -3, 2, 2)]
+# data = [u.create_sample_from_xy(shape) for shape in data_original]
+# u.plot_objects(data_original)
+# u.plot_feas(data)
 
 particles = []
 weights = []
@@ -69,7 +69,7 @@ fig, axes = plt.subplots(nrows=3, ncols=3)
 axes = np.ndarray.flatten(np.array(axes))
 # vmin, vmax = get_min_max_likelihood(data)
 for i, (theta, feasible) in enumerate(data):
-    pu.plot_likelihood_heatmap_norm_weights(axes[i], theta, feasible, TRUE_WEIGHTS)
+    u.plot_likelihood_heatmap_norm_weights(axes[i], theta, feasible, TRUE_WEIGHTS)
     plt.pause(0.1)
 
 def info_gain(dist, x):
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     axes = np.ndarray.flatten(np.array(axes))
     bar_fig, bar_axes = plt.subplots(nrows=5, ncols=4)
     bar_axes = np.ndarray.flatten(np.array(bar_axes))
-    pu.plot_belief(axes[0], np.array(dist.particles), TRUE_WEIGHTS)
+    u.plot_belief(axes[0], np.array(dist.particles), TRUE_WEIGHTS)
     plt.pause(0.1)
     for i in range(1, len(axes)):
         ax = axes[(i) % len(axes)]
@@ -104,7 +104,7 @@ if __name__ == '__main__':
         # theta, feasible = data[i % len(data)]
         dist.weights = dist.reweight(theta, feasible)
         dist.resample()
-        pu.plot_belief(ax, np.array(dist.particles), TRUE_WEIGHTS)
+        u.plot_belief(ax, np.array(dist.particles), TRUE_WEIGHTS)
         bar_ax.bar(np.arange(len(data)), expected_infos, 0.35, color='C0', label='expected info gain')
         bar_ax.bar(np.arange(len(data)) + 0.35, actual_infos, 0.35, color='C1', label='actual info gain')
         bar_ax.bar(max_idx, expected_infos[max_idx], 0.35, color='C2', label='chosen set expected info')

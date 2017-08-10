@@ -12,6 +12,7 @@ import multiprocessing as mp
 from functools import partial
 from sklearn.neighbors import NearestNeighbors
 from numpy.random import multivariate_normal as mvn
+import readline
 
 l1 = 3
 l2 = 3
@@ -22,6 +23,82 @@ TRUE_MEAN = np.array([0, 0])
 TRUE_WEIGHTS = np.array([1, 3])
 TRUE_WEIGHTS = TRUE_WEIGHTS / np.linalg.norm(TRUE_WEIGHTS)
 
+def load_object_desc(desc_string):
+    result = eval(desc_string)
+    for tsr_name in result['human_tsrs'].keys():
+        tsr_obj = prpy.tsr.TSR(**result['human_tsrs'][tsr_name])
+        result['human_tsrs'][tsr_name] = tsr_obj
+    for tsr_name in result['robot_tsrs'].keys():
+        tsr_obj = prpy.tsr.TSR(**result['robot_tsrs'][tsr_name])
+        result['robot_tsrs'][tsr_name] = tsr_obj
+    return result
+def load(filename):
+    return np.load(filename)
+def load_txt(filename):
+    with open(filename, 'r') as file_handle:
+        object_string = file_handle.read()
+    return load_object_desc(object_string)
+def load_environment_file(filename):
+    problem_def = load(filename)
+    human_file = problem_def['human_file'].tostring()
+    robot_file = problem_def['robot_file'].tostring()
+    object_file = problem_def['object_file'].tostring()
+    target_desc = load_txt(object_file)
+    human_base_pose = problem_def['human_base_pose']
+    robot_base_pose = problem_def['robot_base_pose']
+    object_start_pose = problem_def['object_start_pose']
+    problem_def.close()
+    return load_environment(human_file, robot_file, object_file,
+            human_base_pose, robot_base_pose, object_start_pose)
+def load_environment(human_file, robot_file, object_file,
+        human_base_pose, robot_base_pose, object_start_pose):
+    env = Environment()
+
+    #Add the human
+    human = env.ReadKinBodyXMLFile(human_file)
+    env.AddKinBody(human)
+
+    env.GetCollisionChecker().SetCollisionOptions(0)
+    manip = human.SetActiveManipulator('rightarm')
+    human.SetTransform(human_base_pose)
+
+    human.GetLink('Hips').SetVisible(False)
+    hand_joints = []
+    hand_joints.append(human.GetJointIndex('JLFing11'))
+    hand_joints.append(human.GetJointIndex('JLFing21'))
+    hand_joints.append(human.GetJointIndex('JLFing31'))
+    hand_joints.append(human.GetJointIndex('JLFing41'))
+    hand_joints.append(human.GetJointIndex('JLFing10'))
+    hand_joints.append(human.GetJointIndex('JLFing20'))
+    hand_joints.append(human.GetJointIndex('JLFing30'))
+    hand_joints.append(human.GetJointIndex('JLFing40'))
+    hand_joints.append(human.GetJointIndex('JRFing11'))
+    hand_joints.append(human.GetJointIndex('JRFing21'))
+    hand_joints.append(human.GetJointIndex('JRFing31'))
+    hand_joints.append(human.GetJointIndex('JRFing41'))
+    hand_joints.append(human.GetJointIndex('JRFing10'))
+    hand_joints.append(human.GetJointIndex('JRFing20'))
+    hand_joints.append(human.GetJointIndex('JRFing30'))
+    hand_joints.append(human.GetJointIndex('JRFing40'))
+    human.SetDOFValues([0.5]*16, hand_joints)
+
+    #Add the robot
+    with env:
+         robot = env.ReadRobotXMLFile(robot_file)
+    #Add the object
+    target_desc = load_txt(object_file)
+    with env:
+        target = env.ReadKinBodyXMLFile(target_desc['object_file'])
+        env.AddKinBody(target)
+        target.SetTransform(object_start_pose)
+
+    return env, human, robot, target, target_desc
+def prefilled_input(prompt, prefill=''):
+   readline.set_startup_hook(lambda: readline.insert_text(prefill))
+   try:
+      return raw_input(prompt)
+   finally:
+      readline.set_startup_hook()
 def cost(theta, theta_star, w):
     d_theta = np.square(theta - theta_star)
     return d_theta.dot(w)
