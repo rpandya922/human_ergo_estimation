@@ -22,28 +22,36 @@ ALPHA = 10
 ALPHA_I = 1
 ALPHA_O = 1
 TRUE_MEAN = np.array([0, 0])
-TRUE_WEIGHTS = np.array([1, 3])
+TRUE_WEIGHTS = np.array([3, 1])
 TRUE_WEIGHTS = TRUE_WEIGHTS / np.linalg.norm(TRUE_WEIGHTS)
+u.TRUE_MEAN = TRUE_MEAN
+u.TRUE_WEIGHTS = TRUE_WEIGHTS
 NUM_PARTICLES = 500
 two_pi = 2 * np.pi
 def cost(theta, theta_star, w):
     d_theta = np.square(theta - theta_star)
     return d_theta.dot(w)
 ###################################################################
-# data_original = [create_ellipse(-1, 2, 1, 2), create_ellipse(-1, -2, 1, 2),\
-#                  create_ellipse(1, 2, 1, 2), create_ellipse(1, -2, 1, 2), \
-#                  create_ellipse(2, 2, 2, 1), create_ellipse(-2, -2, 2, 1), \
-#                  create_ellipse(-1, 0, 1, 3), create_ellipse(0, 0, 1, 1)]
+# data_original = [u.create_ellipse(-1, 2, 1, 2), u.create_ellipse(-1, -2, 1, 2),\
+#                  u.create_ellipse(1, 2, 1, 2), u.create_ellipse(1, -2, 1, 2), \
+#                  u.create_ellipse(2, 2, 2, 1), u.create_ellipse(-2, -2, 2, 1), \
+#                  u.create_ellipse(-1, 0, 1, 3), u.create_ellipse(0, 0, 1, 1)]
+data_original = [u.create_ellipse(1, 1, 1, 1), u.create_ellipse(0, 0, 1, 2), \
+        u.create_box([1, 3], [5, 0]), u.create_box([0, 1], [4, 1]), \
+        u.create_ellipse(0, -2, 1, 3), u.create_box([-6, -2], [6, -2]), \
+        u.create_box([-6, 0], [6, 0]), u.create_ellipse(-3, -3, 2, 2)]
+data = [u.create_sample_from_xy(feas) for feas in data_original]
 # cov = np.array([[0.1, 0], [0, 0.1]])
 # data_original = [np.array([[1, 0], [0, 1]]), np.vstack((mvn([2, 1], cov, 10), mvn([-3, 2], cov, 10))),\
 #                  create_line([1, 0], [0, 1]), create_line([-1, 2], [2, -1]),\
 #                  create_line([1, 3], [-3, -1]), np.array([[1, 3], [-3, -1]]),\
 #                  create_line([-2, -2], [2, -2])]
-data_original = [np.array([[1, 0], [0, 1]]), u.create_line([1, 0], [0, 1]),\
-                 u.create_line([-1, 2], [2, -1]), u.create_line([-2, 0], [0, 3]),\
-                 u.create_line([-1, -1], [1, -1]), u.create_box([1, 1], [1, -1], 0.1),\
-                 u.create_line([-3, 1], [1, -3]), u.create_line([-1, -5], [5, 1])]
-data = [u.create_sample(feas) for feas in data_original]
+# data_original = [np.array([[1, 0], [0, 1]]), u.create_line([1, 0], [0, 1]),\
+#                  u.create_line([-1, 2], [2, -1]), u.create_line([-2, 0], [0, 3]),\
+#                  u.create_line([-1, -1], [1, -1]), u.create_box([1, 1], [1, -1], 0.1),\
+#                  u.create_line([-3, 1], [1, -3]), u.create_line([-1, -5], [5, 1])]
+# data = [u.create_sample(feas) for feas in data_original]
+u.plot_objects(data_original)
 u.plot_feas(data)
 # data_original = [u.create_ellipse(1, 1, 1, 1), u.create_ellipse(0, 0, 1, 2), \
 #         u.create_box([1, 3], [5, 0]), u.create_box([0, 1], [4, 1]), \
@@ -69,7 +77,7 @@ fig, axes = plt.subplots(nrows=3, ncols=3)
 axes = np.ndarray.flatten(np.array(axes))
 # vmin, vmax = get_min_max_likelihood(data)
 for i, (theta, feasible) in enumerate(data):
-    u.plot_likelihood_heatmap_norm_weights(axes[i], theta, feasible, TRUE_WEIGHTS)
+    u.plot_likelihood_heatmap_norm_weights(axes[i], theta, feasible, TRUE_WEIGHTS, vmin=-9, vmax=-1)
     plt.pause(0.1)
 
 def info_gain(dist, x):
