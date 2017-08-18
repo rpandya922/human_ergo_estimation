@@ -1,6 +1,8 @@
 from __future__ import division
 import sys
 sys.path.insert(0, '../')
+from openravepy import *
+import prpy
 import numpy as np
 import seaborn
 import matplotlib
@@ -11,7 +13,7 @@ from distribution import SetMeanParticleDistribution
 import multiprocessing as mp
 from functools import partial
 from sklearn.neighbors import NearestNeighbors
-from numpy.random import multivariate_normal as mvn
+from scipy.stats import multivariate_normal as mvn
 import readline
 
 l1 = 3
@@ -22,7 +24,7 @@ ALPHA_O = 1
 TRUE_MEAN = np.array([0, 0])
 TRUE_WEIGHTS = np.array([1, 3])
 TRUE_WEIGHTS = TRUE_WEIGHTS / np.linalg.norm(TRUE_WEIGHTS)
-
+two_pi = 2 * np.pi
 def load_object_desc(desc_string):
     result = eval(desc_string)
     for tsr_name in result['human_tsrs'].keys():
@@ -43,7 +45,7 @@ def load_environment_file(filename):
     human_file = problem_def['human_file'].tostring()
     robot_file = problem_def['robot_file'].tostring()
     object_file = problem_def['object_file'].tostring()
-    target_desc = load_txt(object_file)
+    target_desc = load_txt('../data/' + object_file)
     human_base_pose = problem_def['human_base_pose']
     robot_base_pose = problem_def['robot_base_pose']
     object_start_pose = problem_def['object_start_pose']
@@ -86,9 +88,9 @@ def load_environment(human_file, robot_file, object_file,
     with env:
          robot = env.ReadRobotXMLFile(robot_file)
     #Add the object
-    target_desc = load_txt(object_file)
+    target_desc = load_txt('../data/' + object_file)
     with env:
-        target = env.ReadKinBodyXMLFile(target_desc['object_file'])
+        target = env.ReadKinBodyXMLFile('../data/' + target_desc['object_file'])
         env.AddKinBody(target)
         target.SetTransform(object_start_pose)
 
@@ -171,7 +173,7 @@ def create_sample2(feas, weights):
     chosen = feas[chosen_idx]
     return (chosen, feas)
 def plot_objects(data):
-    fig, axes = plt.subplots(nrows=2, ncols=4)
+    fig, axes = plt.subplots(nrows=3, ncols=3)
     fig.suptitle("'objects' in xy space")
     axes = np.ndarray.flatten(np.array(axes))
     for (i, feasible) in enumerate(data):
@@ -207,7 +209,7 @@ def plot_feas(data, weights=None):
         ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
         ax.set_title('weights: ' + str(w))
     plt.pause(0.2)
-def plot_belief(ax, particles, ground_truth):
+def plot_belief(ax, particles, ground_truth, alpha=0.01):
     # data_weights = particles.T
     # kernel = kde(data_weights)
     # points = sample_spherical(700).T
@@ -220,7 +222,7 @@ def plot_belief(ax, particles, ground_truth):
     # ax.scatter(points[:,0], points[:,1], c=colors, cmap='viridis')
     ax.set_xlim(0, 1.1)
     ax.set_ylim(0, 1.1)
-    ax.scatter(np.array(particles)[:,0], np.array(particles)[:,1], c='g', alpha=0.01)
+    ax.scatter(np.array(particles)[:,0], np.array(particles)[:,1], c='g', alpha=alpha)
     ax.scatter(ground_truth[0], ground_truth[1], c='C3', s=200, zorder=2)
 def plot_belief_update(ax, particles, theta, feasible, ground_truth):
     plot_belief(ax, particles, ground_truth)
@@ -300,3 +302,17 @@ def plot_likelihood_heatmap_norm_weights(ax, theta, feasible, ground_truth, vmin
     colors = np.random.random(100)
     ax.scatter(points[:,0], points[:,1], c=likelihoods, vmin=vmin, vmax=vmax, cmap='inferno')
     ax.scatter(ground_truth[0], ground_truth[1], c='C3', s=200, zorder=2)
+def prob_of_truth(dist, ground_truth):
+    DOF = len(dist.particles[0])
+    cov = np.diag(np.ones(DOF)) * 0.0625
+    likelihoods = mvn.pdf(dist.particles, mean=ground_truth, cov=cov)
+    return np.sum(likelihoods) / dist.NUM_PARTICLES
+def dist_to_truth(dist, ground_truth):
+    mean = np.mean(dist.particles, axis=0)
+    return np.linalg.norm(mean - ground_truth)
+def plot_metric(data, label):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(data)
+    ax.set_xlabel('iteration')
+    ax.set_ylabel(label)

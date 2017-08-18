@@ -14,7 +14,7 @@ DOF = 4
 ALPHA = 40
 FEASIBLE_SIZE = 1000
 TRUE_MEAN = np.array([0, 0, 0, 0])
-TRUE_WEIGHTS = np.array([1, 1, 1, 1])
+TRUE_WEIGHTS = np.array([4, 3, 2, 1])
 training_data_size = 500
 
 def cost(theta, theta_star, w):
@@ -75,5 +75,5 @@ for i in range(len(data)):
     feasible = data[i]
     probs = get_distribution(feasible, cost, ALPHA)
     training_data.append(create_sample(feasible, probs))
-np.savez("../data/sim_rod_training_data", data_full=data_full, \
+np.savez("../data/sim_rod_weight_learning", data_full=data_full, \
 data=training_data, poses=poses)

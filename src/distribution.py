@@ -377,3 +377,12 @@ class SetMeanParticleDistribution():
             avg_cost += weight * self.cost(theta, self.m, particle)
         print str(avg_cost) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return avg_cost
+    def neg_log_likelihood(self, data):
+        total = 0
+        for (i, particle) in enumerate(self.particles):
+            ll = 0
+            for (theta, feasible) in data:
+                ll += pe.prob_theta_given_lam_stable_set_weight_num(theta, self.m, particle, self.cost, 1)
+                ll -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, particle, self.cost, 1)
+            total += (ll * self.weights[i])
+        return -total
