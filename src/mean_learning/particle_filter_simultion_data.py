@@ -18,7 +18,7 @@ from sklearn.neighbors import NearestNeighbors
 #########################################################
 # CONSTANTS AND FUNCTIONS
 DOF = 4
-NUM_PARTICLES = 1001
+NUM_PARTICLES = 1000
 box_size = 0.5
 ALPHA_I = 2.5
 ALPHA_O = 2.5
@@ -46,7 +46,7 @@ def load_environment_file(filename):
     human_file = problem_def['human_file'].tostring()
     robot_file = problem_def['robot_file'].tostring()
     object_file = problem_def['object_file'].tostring()
-    target_desc = load_txt(object_file)
+    target_desc = load_txt('../data/' + object_file)
     human_base_pose = problem_def['human_base_pose']
     robot_base_pose = problem_def['robot_base_pose']
     object_start_pose = problem_def['object_start_pose']
@@ -89,9 +89,9 @@ def load_environment(human_file, robot_file, object_file,
     with env:
          robot = env.ReadRobotXMLFile(robot_file)
     #Add the object
-    target_desc = load_txt(object_file)
+    target_desc = load_txt('../data/' + object_file)
     with env:
-        target = env.ReadKinBodyXMLFile(target_desc['object_file'])
+        target = env.ReadKinBodyXMLFile('../data/' + target_desc['object_file'])
         env.AddKinBody(target)
         target.SetTransform(object_start_pose)
 
@@ -195,10 +195,11 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, second=False, wit
     ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
     ax.set_title('variance: %0.2f, size: %d' % (variance, len(feasible)))
 #########################################################
-f = np.load('../data/sim_rod_training_data.npz')
+# f = np.load('../data/sim_rod_training_data.npz')
+f = np.load('../data/sim_rod_weight_learning.npz')
 # f = np.load('./sim_translation_training_data_varied.npz')
 # idxs = np.random.choice(len(f['data']), size=8)
-idxs = list(range(25))
+idxs = list(range(8))
 print idxs
 # idxs = [270, 281, 17, 3, 257, 160, 2]
 # idxs = [0,1,2,3,4,5,6,7]
@@ -208,9 +209,9 @@ poses = f['poses'][idxs]
 env, human, robot, target, target_desc = load_environment_file('../data/rod_full_problem_def.npz')
 env.SetViewer('qtcoin')
 data = all_data
-fig, axes = plt.subplots(nrows=5, ncols=5)
+fig, axes = plt.subplots(nrows=2, ncols=4)
 axes = np.ndarray.flatten(np.array(axes))
-fig2, axes2 = plt.subplots(nrows=5, ncols=5)
+fig2, axes2 = plt.subplots(nrows=2, ncols=4)
 axes2 = np.ndarray.flatten(np.array(axes2))
 
 newrobots = []
@@ -240,7 +241,7 @@ for (i, (theta, feasible)) in enumerate(data):
             newrobot.SetDOFValues(feas_full[ind], human.GetActiveManipulator().GetArmIndices())
     env.UpdatePublishedBodies()
     plt.pause(0.01)
-    raw_input('Displaying pose ' + str(i) + ', press <Enter> to continue:')
+    # raw_input('Displaying pose ' + str(i) + ', press <Enter> to continue:')
 fig.suptitle('dim 1&2 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
              ' alpha_o: ' + str(ALPHA_O) + 'avg var: ' + str(np.average(all_vars_dim1)))
 fig2.suptitle('dim 3&4 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
@@ -252,8 +253,7 @@ ax.hist(all_vars_dim1, range=(0,140), normed=True)
 ax = axes[1]
 ax.hist(all_vars_dim2, range=(0, 40), normed=True)
 
-plt.show()
-1/0
+
 for (i, (theta, feasible)) in enumerate(data):
     if len(feasible) > 1000:
         idxs = np.random.choice(len(feasible), size=1000)
@@ -342,5 +342,5 @@ if __name__ == '__main__':
         bar_ax.bar(np.arange(len(data)) + 0.35, actual_infos, 0.35, color='C1', label='actual info gain')
         bar_ax.bar(max_idx, expected_infos[max_idx], 0.35, color='C2', label='chosen set expected info')
         plt.pause(0.2)
-        raw_input('Displaying iteration ' + str(i) + ', press <Enter> to continue:')
+        # raw_input('Displaying iteration ' + str(i) + ', press <Enter> to continue:')
     plt.show()

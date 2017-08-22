@@ -297,8 +297,8 @@ def plot_likelihood_heatmap_norm_weights(ax, theta, feasible, ground_truth, vmin
         return pe.prob_theta_given_lam_stable_set_weight_num(theta, TRUE_MEAN, point, cost, alpha)\
         -pe.prob_theta_given_lam_stable_set_weight_denom(feasible, TRUE_MEAN, point, cost, alpha)
     likelihoods = np.array([likelihood(idx, p) for idx, p in enumerate(points)])
-    print min(likelihoods)
-    print 'max: ' + str(max(likelihoods))
+    # print min(likelihoods)
+    # print 'max: ' + str(max(likelihoods))
     colors = np.random.random(100)
     ax.scatter(points[:,0], points[:,1], c=likelihoods, vmin=vmin, vmax=vmax, cmap='inferno')
     ax.scatter(ground_truth[0], ground_truth[1], c='C3', s=200, zorder=2)

@@ -242,11 +242,11 @@ class SetWeightsParticleDistribution():
             d = SetWeightsParticleDistribution(self.particles, weights, self.cost, self.w, self.ALPHA_I, self.ALPHA_O)
             ent = d.entropy(num_boxes, axis_ranges)
             avg_ent += weight * ent
-            if i % 50 == 0:
-                print "\r%d" % i,
-                sys.stdout.flush()
+            # if i % 50 == 0:
+            #     print "\r%d" % i,
+            #     sys.stdout.flush()
         ret = self.entropy(num_boxes, axis_ranges) - avg_ent
-        print str(ret) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
+        # print str(ret) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return ret
     def expected_cost(self, feasible):
         new_weights = np.zeros(self.NUM_PARTICLES)
@@ -257,7 +257,7 @@ class SetWeightsParticleDistribution():
             weight = self.weights[i]
             theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, particle, self.w, self.cost, alpha))
             avg_cost += weight * self.cost(theta, particle, self.w)
-        print str(avg_cost) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
+        # print str(avg_cost) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return avg_cost
     def info_gain_kl(self, feasible):
         avg = 0
@@ -326,6 +326,13 @@ class SetMeanParticleDistribution():
                 ll -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, particle, self.cost, 1)
             total += (ll * self.weights[i])
         return -total
+    def neg_log_likelihood_mean(self, data):
+        mean = np.mean(self.particles, axis=0)
+        total = 0
+        for (theta, feasible) in data:
+            total += pe.prob_theta_given_lam_stable_set_weight_num(theta, self.m, mean, self.cost, 1)
+            total -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, mean, self.cost, 1)
+        return -total
     def entropy(self, num_boxes=10, axis_ranges=None):
         if axis_ranges is None:
             axis_ranges = np.array([3]*len(self.particles[0]))
@@ -360,11 +367,11 @@ class SetMeanParticleDistribution():
             d = SetWeightsParticleDistribution(self.particles, weights, self.cost, self.m, self.ALPHA_I, self.ALPHA_O)
             ent = d.entropy(num_boxes, axis_ranges)
             avg_ent += weight * ent
-            if i % 50 == 0:
-                print "\r%d" % i,
-                sys.stdout.flush()
+            # if i % 50 == 0:
+            #     print "\r%d" % i,
+            #     sys.stdout.flush()
         ret = self.entropy(num_boxes, axis_ranges) - avg_ent
-        print str(ret) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
+        # print str(ret) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return ret
     def expected_cost(self, feasible):
         new_weights = np.zeros(self.NUM_PARTICLES)
@@ -375,14 +382,5 @@ class SetMeanParticleDistribution():
             weight = self.weights[i]
             theta = max(feasible, key=lambda x: pe.prob_theta_given_lam_stable_set_weight_num(x, self.m, particle, self.cost, alpha))
             avg_cost += weight * self.cost(theta, self.m, particle)
-        print str(avg_cost) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
+        # print str(avg_cost) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return avg_cost
-    def neg_log_likelihood(self, data):
-        total = 0
-        for (i, particle) in enumerate(self.particles):
-            ll = 0
-            for (theta, feasible) in data:
-                ll += pe.prob_theta_given_lam_stable_set_weight_num(theta, self.m, particle, self.cost, 1)
-                ll -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, particle, self.cost, 1)
-            total += (ll * self.weights[i])
-        return -total
