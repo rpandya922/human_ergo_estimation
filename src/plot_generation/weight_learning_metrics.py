@@ -35,6 +35,7 @@ TRUE_WEIGHTS1 = TRUE_WEIGHTS1 / np.linalg.norm(TRUE_WEIGHTS1)
 TRUE_WEIGHTS2 = np.array([2, 1])
 TRUE_WEIGHTS2 = TRUE_WEIGHTS2 / np.linalg.norm(TRUE_WEIGHTS2)
 NUM_PARTICLES = 500
+NUM_ITERATIONS = 25
 two_pi = 2 * np.pi
 particle_density = 0.01
 DEFAULT_DATA_FILE = 'sim_rod_weight_learning.npz'
@@ -84,7 +85,7 @@ def train_active(dist, data):
     ground_truth_probs = [utils.prob_of_truth(dist, TRUE_WEIGHTS)]
     ground_truth_dists = [utils.dist_to_truth(dist, TRUE_WEIGHTS)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
-    for i in range(1, 25):
+    for i in range(1, NUM_ITERATIONS):
         print "\rActive on iteration %d of 24" % i,
         sys.stdout.flush()
         func = partial(info_gain, dist)
@@ -133,7 +134,7 @@ def train_min_cost(dist, data):
     ground_truth_probs = [utils.prob_of_truth(dist, TRUE_WEIGHTS)]
     ground_truth_dists = [utils.dist_to_truth(dist, TRUE_WEIGHTS)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
-    for i in range(1, 25):
+    for i in range(1, NUM_ITERATIONS):
         print "\rMin cost on iteration %d of 24" % i,
         sys.stdout.flush()
         func = partial(min_cost, dist)
@@ -179,7 +180,7 @@ def train_random(dist, data):
     ground_truth_probs = [utils.prob_of_truth(dist, TRUE_WEIGHTS)]
     ground_truth_dists = [utils.dist_to_truth(dist, TRUE_WEIGHTS)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
-    for i in range(1, 25):
+    for i in range(1, NUM_ITERATIONS):
         print "\rRandom on iteration %d of 24" % i,
         sys.stdout.flush()
         (theta, feasible) = data[i % 8]
@@ -204,7 +205,8 @@ def train_random(dist, data):
 datafile = utils.prefilled_input('Simulation data file: ', DEFAULT_DATA_FILE)
 
 f = np.load('../data/' + datafile)
-idxs = list(range(25))
+# idxs = list(range(25))
+idxs = [2, 5, 9, 18, 1, 11, 14, 23]
 # idxs = np.random.choice(len(f['data']), size=25)
 print idxs
 # data_full = f['data_full'][idxs]
@@ -218,7 +220,7 @@ for (i, (theta, feasible)) in enumerate(data):
         idxs = np.random.choice(len(feasible), size=1000)
         new_feas = feasible[idxs]
         data[i][1] = new_feas
-data_active = data[8:16]
+data_active = data[:8]
 # test_set = data_active
 plot_feas(test_set, 2, 5, 'Test feasible sets')
 plot_feas(data_active)

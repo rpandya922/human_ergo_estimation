@@ -75,8 +75,8 @@ datafile = utils.prefilled_input('Simulation data file: ', DEFAULT_DATA_FILE)
 problem_def_file = utils.prefilled_input('Problem definition file: ', DEFAULT_PROBLEM_DEF_FILE)
 
 f = np.load('../data/' + datafile)
-# idxs = list(range(8))
-idxs = np.random.choice(len(f['data']), size=8)
+idxs = list(range(8))
+# idxs = np.random.choice(len(f['data']), size=8)
 print idxs
 data_full = f['data_full'][idxs]
 all_data = f['data'][idxs]
@@ -116,7 +116,7 @@ for (i, (theta, feasible)) in enumerate(data):
             newrobot.SetDOFValues(feas_full[ind], human.GetActiveManipulator().GetArmIndices())
     env.UpdatePublishedBodies()
     plt.pause(0.01)
-    # raw_input('Displaying pose ' + str(i) + ', press <Enter> to continue:')
+    raw_input('Displaying pose ' + str(i) + ', press <Enter> to continue:')
 fig.suptitle('dim 1&2 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
              ' alpha_o: ' + str(ALPHA_O))
 fig2.suptitle('dim 3&4 Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
