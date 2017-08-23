@@ -5,3 +5,4 @@ src/new_tsr_tests
 *.npz
 src/data
 *.txt
+avg_data/
