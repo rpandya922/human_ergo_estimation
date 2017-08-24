@@ -6,3 +6,4 @@ src/new_tsr_tests
 src/data
 *.txt
 avg_data/
+full_data/
