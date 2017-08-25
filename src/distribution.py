@@ -2,8 +2,12 @@ from __future__ import division
 import numpy as np
 from scipy.misc import logsumexp
 from scipy.stats import gaussian_kde as kde
+from scipy.optimize import minimize
 import probability_estimation as pe
 from sklearn.neighbors import NearestNeighbors
+from scipy.stats import multivariate_normal as mvn
+import seaborn
+import matplotlib.pyplot as plt
 import sys
 
 H = 0.03
@@ -317,6 +321,32 @@ class SetMeanParticleDistribution():
         self.weights = [1/size]*size
         self.NUM_PARTICLES = size
         self.particles = self.particles / np.linalg.norm(self.particles, axis=1).reshape(-1, 1)
+    def distribution_mode(self):
+        kernel = kde(np.array(self.particles).T)
+        xs = []
+        def kernel(x):
+            DOF = len(x)
+            cov = np.diag(np.ones(DOF)) * 0.0625
+            likelihoods = mvn.pdf(self.particles, mean=x, cov=cov)
+            return np.sum(likelihoods) / self.NUM_PARTICLES
+        for _ in range(7):
+            start = np.random.uniform(size=7)
+            start = start / np.linalg.norm(start)
+            res = minimize(lambda x: -kernel(x), start)
+            xs.append(res.x)
+        mode = max(xs, key=kernel)
+        ax = plt.gca()
+        mean = np.mean(self.particles, axis=0)
+        mean = mean[:2] / np.linalg.norm(mean[:2])
+        particles = self.particles[:,:2] / np.linalg.norm(self.particles[:,:2], axis=1).reshape(-1, 1)
+        mode1 = mode[:2] / np.linalg.norm(mode[:2])
+        ax.set_xlim(0, 1.1)
+        ax.set_ylim(0, 1.1)
+        ax.scatter(np.array(particles)[:,0], np.array(particles)[:,1], c='g', alpha=0.01)
+        ax.scatter(mode1[0], mode1[1], c='C3', s=200, zorder=2)
+        ax.scatter(mean[0], mean[1], c='C4', s=200, zorder=2)
+        plt.show()
+        return mode
     def neg_log_likelihood(self, data):
         total = 0
         for (i, particle) in enumerate(self.particles):
@@ -327,11 +357,12 @@ class SetMeanParticleDistribution():
             total += (ll * self.weights[i])
         return -total
     def neg_log_likelihood_mean(self, data):
-        mean = np.mean(self.particles, axis=0)
+        # mean = np.mean(self.particles, axis=0)
+        mode = self.distribution_mode()
         total = 0
         for (theta, feasible) in data:
-            total += pe.prob_theta_given_lam_stable_set_weight_num(theta, self.m, mean, self.cost, 1)
-            total -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, mean, self.cost, 1)
+            total += pe.prob_theta_given_lam_stable_set_weight_num(theta, self.m, mode, self.cost, 1)
+            total -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, mode, self.cost, 1)
         return -total
     def entropy(self, num_boxes=10, axis_ranges=None):
         if axis_ranges is None:
