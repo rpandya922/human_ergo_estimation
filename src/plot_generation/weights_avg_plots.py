@@ -35,10 +35,11 @@ TRUE_MEAN = np.array([0, 0, 0, 0, 0, 0, 0])
 TRUE_WEIGHTS = np.array([[4, 3, 2, 1, 2, 2, 2], [1, 1, 1, 1, 1, 1, 1], [0, 1, 2, 3, 4, 5, 6], \
                          [1, 5, 3, 5, 7, 7, 4], [8, 4, 6, 1, 3, 6, 8]])
 TRUE_WEIGHTS = TRUE_WEIGHTS / np.linalg.norm(TRUE_WEIGHTS, axis=1).reshape(-1, 1)
-TEST_SET_SIZE = 50
-NUM_PARTICLES = 10
+TEST_SET_SIZE = 300
+NUM_PARTICLES = 1000
 NUM_TRAIN_ITERATIONS = 10
 training_data_size = 500
+DISTRIBUTION_DATA_FOLDER = '../data/random_selected'
 def cost(theta, theta_star, w):
     d_theta = np.square(theta - theta_star)
     return d_theta.dot(w)
@@ -69,7 +70,7 @@ def preprocess_feasible(data, poses):
                 continue
         except:
             pass
-        if len(feasible) <= 6:
+        if len(feasible) <= 2:
             continue
         try:
             weights = 1 / kde(feasible.T).evaluate(feasible.T)
@@ -84,10 +85,13 @@ def preprocess_feasible(data, poses):
         sys.stdout.flush()
     print
     return new_data_full, new_poses
-def train_active(dist, data, ground_truth):
+def train_active(dist, full_data, ground_truth):
+    data = full_data[np.random.choice(len(full_data), size=8)]
     ground_truth_probs = [utils.prob_of_truth(dist, ground_truth)]
     ground_truth_dists = [utils.dist_to_truth(dist, ground_truth)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
+    all_expected_infos = []
+    all_actual_infos = []
     for i in range(1, NUM_TRAIN_ITERATIONS):
         print "\rActive on iteration %d of 9" % i,
         sys.stdout.flush()
@@ -113,13 +117,17 @@ def train_active(dist, data, ground_truth):
         ground_truth_probs.append(prob)
         ground_truth_dists.append(distance)
         data_likelihoods.append(-ll)
+        all_expected_infos.append(expected_infos[:])
+        all_actual_infos.append(actual_infos[:])
         plt.pause(0.01)
     print
-    return ground_truth_probs, ground_truth_dists, data_likelihoods
-def train_min_cost(dist, data, ground_truth):
+    return ground_truth_probs, ground_truth_dists, data_likelihoods, all_expected_infos, all_actual_infos
+def train_min_cost(dist, full_data, ground_truth):
+    data = full_data[np.random.choice(len(full_data), size=8)]
     ground_truth_probs = [utils.prob_of_truth(dist, ground_truth)]
     ground_truth_dists = [utils.dist_to_truth(dist, ground_truth)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
+    all_expected_costs = []
     for i in range(1, NUM_TRAIN_ITERATIONS):
         print "\rMin cost on iteration %d of 9" % i,
         sys.stdout.flush()
@@ -145,17 +153,19 @@ def train_min_cost(dist, data, ground_truth):
         ground_truth_probs.append(prob)
         ground_truth_dists.append(distance)
         data_likelihoods.append(-ll)
+        all_expected_costs.append(expected_costs[:])
         plt.pause(0.01)
     print
-    return ground_truth_probs, ground_truth_dists, data_likelihoods
-def train_random(dist, data, ground_truth):
+    return ground_truth_probs, ground_truth_dists, data_likelihoods, all_expected_costs
+def train_random(dist, full_data, ground_truth):
+    data = full_data[np.random.choice(len(full_data), size=8)]
     ground_truth_probs = [utils.prob_of_truth(dist, ground_truth)]
     ground_truth_dists = [utils.dist_to_truth(dist, ground_truth)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
     for i in range(1, NUM_TRAIN_ITERATIONS):
         print "\rRandom on iteration %d of 9" % i,
         sys.stdout.flush()
-        (theta, feasible) = data[i % 8]
+        (theta, feasible) = data[i % len(data)]
         dist.weights = dist.reweight(theta, feasible)
         dist.resample()
 
@@ -168,10 +178,24 @@ def train_random(dist, data, ground_truth):
         plt.pause(0.01)
     print
     return ground_truth_probs, ground_truth_dists, data_likelihoods
+def get_test_sets():
+    datasets = []
+    for weights_idx in args.weights:
+        weights = TRUE_WEIGHTS[weights_idx]
+        data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
+        print "preprocessed"
+        training_data = []
+        for i in range(len(data)):
+            feasible = data[i]
+            probs = get_distribution(feasible, cost, weights, ALPHA)
+            training_data.append(create_sample(feasible, probs))
+        datasets.append(training_data)
+    return datasets
 ##############################################################
 datasets = []
 for weights_idx in args.weights:
     weights = TRUE_WEIGHTS[weights_idx]
+    # data, poses = np.array(preprocess_feasible(np.load('../data/rod_handpicked_data.npy'), np.load('../data/rod_handpicked_cases.npz')['pose_samples']))
     data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
     print "preprocessed"
     training_data = []
@@ -181,6 +205,7 @@ for weights_idx in args.weights:
         training_data.append(create_sample(feasible, probs))
     datasets.append(training_data)
 
+test_sets = get_test_sets()
 def info_gain(dist, x):
     return (x, dist.info_gain(x[1], num_boxes=20), dist.expected_cost(x[1]))
 def min_cost(dist, x):
@@ -191,14 +216,16 @@ if __name__ == '__main__':
     for weight_idx in args.weights:
         ground_truth_weights = TRUE_WEIGHTS[weight_idx]
         all_data = datasets[weight_idx]
+        test_set = test_sets[weight_idx][:TEST_SET_SIZE]
         for set_idx in args.sets:
             np.random.seed(set_idx + (1000*weight_idx))
-            test_set = all_data[:TEST_SET_SIZE]
-            data = all_data[TEST_SET_SIZE:]
-            idxs = np.random.choice(len(data), size=8)
-            data = np.array(data)[idxs]
+            # test_set = all_data[:TEST_SET_SIZE]
+            # data = all_data[TEST_SET_SIZE:]
+            # idxs = np.random.choice(len(data), size=8)
+            # data = np.array(data)[idxs]
             # test_set = all_data[25:35]
             # data = all_data[:8]
+            data = np.array(all_data)[TEST_SET_SIZE:]
             particles = []
             weights = []
             while len(particles) < NUM_PARTICLES:
@@ -220,12 +247,9 @@ if __name__ == '__main__':
             initial_dist = utils.dist_to_truth(dist_active, ground_truth_weights)
             initial_ll = -dist_active.neg_log_likelihood_mean(test_set)
 
-            probs_active, dists_active, ll_active = train_active(dist_active, data, ground_truth_weights)
-            print "finished active"
-            probs_passive, dists_passive, ll_passive = train_min_cost(dist_passive, data, ground_truth_weights)
-            print "finished passive"
+            probs_active, dists_active, ll_active, expected_infos, actual_infos = train_active(dist_active, data, ground_truth_weights)
+            probs_passive, dists_passive, ll_passive, expected_costs = train_min_cost(dist_passive, data, ground_truth_weights)
             probs_random, dists_random, ll_random = train_random(dist_random, data, ground_truth_weights)
-            print "finished random"
 
             pickle_dict = {'training_data': data, 'weights': ground_truth_weights, \
                             'distribution_active': dist_active, 'distribution_passive': dist_passive, \
@@ -235,8 +259,10 @@ if __name__ == '__main__':
                             'distances_random': dists_random, 'll_active': ll_active, \
                             'll_passive': ll_passive, 'll_random': ll_random, \
                             'initial_prob': initial_prob, 'initial_dist': initial_dist, \
-                            'initial_ll': initial_ll, 'test_set': test_set}
-            output = open('../avg_data/set%s_param%s.pkl' % (set_idx, weight_idx), 'wb')
+                            'initial_ll': initial_ll, 'test_set': test_set, \
+                            'expected_infos': expected_infos, 'actual_infos': actual_infos, \
+                            'expected_costs': expected_costs}
+            output = open('%s/set%s_param%s.pkl' % (DISTRIBUTION_DATA_FOLDER, set_idx, weight_idx), 'wb')
             pickle.dump(pickle_dict, output)
             output.close()
 
