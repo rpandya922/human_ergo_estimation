@@ -308,8 +308,9 @@ def prob_of_truth(dist, ground_truth):
     likelihoods = mvn.pdf(dist.particles, mean=ground_truth, cov=cov)
     return np.sum(likelihoods) / dist.NUM_PARTICLES
 def dist_to_truth(dist, ground_truth):
-    mean = np.mean(dist.particles, axis=0)
-    return np.linalg.norm(mean - ground_truth)
+    # mean = np.mean(dist.particles, axis=0)
+    mode = dist.distribution_mode()
+    return np.linalg.norm(mode - ground_truth)
 def plot_metric(data, label):
     fig = plt.figure()
     ax = fig.add_subplot(111)
