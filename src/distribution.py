@@ -335,17 +335,6 @@ class SetMeanParticleDistribution():
             res = minimize(lambda x: -kernel(x), start)
             xs.append(res.x)
         mode = max(xs, key=kernel)
-        ax = plt.gca()
-        mean = np.mean(self.particles, axis=0)
-        mean = mean[:2] / np.linalg.norm(mean[:2])
-        particles = self.particles[:,:2] / np.linalg.norm(self.particles[:,:2], axis=1).reshape(-1, 1)
-        mode1 = mode[:2] / np.linalg.norm(mode[:2])
-        ax.set_xlim(0, 1.1)
-        ax.set_ylim(0, 1.1)
-        ax.scatter(np.array(particles)[:,0], np.array(particles)[:,1], c='g', alpha=0.01)
-        ax.scatter(mode1[0], mode1[1], c='C3', s=200, zorder=2)
-        ax.scatter(mean[0], mean[1], c='C4', s=200, zorder=2)
-        plt.show()
         return mode
     def neg_log_likelihood(self, data):
         total = 0
