@@ -85,8 +85,8 @@ def preprocess_feasible(data, poses):
         sys.stdout.flush()
     print
     return new_data_full, new_poses
-def train_active(dist, full_data, ground_truth):
-    data = full_data[np.random.choice(len(full_data), size=8)]
+def train_active(dist, data, ground_truth):
+    # data = full_data[np.random.choice(len(full_data), size=8)]
     ground_truth_probs = [utils.prob_of_truth(dist, ground_truth)]
     ground_truth_dists = [utils.dist_to_truth(dist, ground_truth)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
@@ -122,8 +122,8 @@ def train_active(dist, full_data, ground_truth):
         plt.pause(0.01)
     print
     return ground_truth_probs, ground_truth_dists, data_likelihoods, all_expected_infos, all_actual_infos
-def train_min_cost(dist, full_data, ground_truth):
-    data = full_data[np.random.choice(len(full_data), size=8)]
+def train_min_cost(dist, data, ground_truth):
+    # data = full_data[np.random.choice(len(full_data), size=8)]
     ground_truth_probs = [utils.prob_of_truth(dist, ground_truth)]
     ground_truth_dists = [utils.dist_to_truth(dist, ground_truth)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
@@ -157,8 +157,8 @@ def train_min_cost(dist, full_data, ground_truth):
         plt.pause(0.01)
     print
     return ground_truth_probs, ground_truth_dists, data_likelihoods, all_expected_costs
-def train_random(dist, full_data, ground_truth):
-    data = full_data[np.random.choice(len(full_data), size=8)]
+def train_random(dist, data, ground_truth):
+    # data = full_data[np.random.choice(len(full_data), size=8)]
     ground_truth_probs = [utils.prob_of_truth(dist, ground_truth)]
     ground_truth_dists = [utils.dist_to_truth(dist, ground_truth)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
@@ -204,7 +204,8 @@ for weights_idx in args.weights:
         probs = get_distribution(feasible, cost, weights, ALPHA)
         training_data.append(create_sample(feasible, probs))
     datasets.append(training_data)
-
+good_idxs = [2, 5, 18]
+bad_idxs = [0, 1, 11, 14, 23]
 test_sets = get_test_sets()
 def info_gain(dist, x):
     return (x, dist.info_gain(x[1], num_boxes=20), dist.expected_cost(x[1]))
@@ -220,12 +221,13 @@ if __name__ == '__main__':
         for set_idx in args.sets:
             np.random.seed(set_idx + (1000*weight_idx))
             # test_set = all_data[:TEST_SET_SIZE]
-            # data = all_data[TEST_SET_SIZE:]
-            # idxs = np.random.choice(len(data), size=8)
-            # data = np.array(data)[idxs]
+            data = all_data[TEST_SET_SIZE:]
+            idxs = np.random.choice(len(data), size=8)
+            data = np.array(data)[idxs]
+            chosen_poses = poses[TEST_SET_SIZE:][idxs]
             # test_set = all_data[25:35]
             # data = all_data[:8]
-            data = np.array(all_data)[TEST_SET_SIZE:]
+            # data = np.array(all_data)[TEST_SET_SIZE:]
             particles = []
             weights = []
             while len(particles) < NUM_PARTICLES:
@@ -261,7 +263,7 @@ if __name__ == '__main__':
                             'initial_prob': initial_prob, 'initial_dist': initial_dist, \
                             'initial_ll': initial_ll, 'test_set': test_set, \
                             'expected_infos': expected_infos, 'actual_infos': actual_infos, \
-                            'expected_costs': expected_costs}
+                            'expected_costs': expected_costs, 'training_poses': chosen_poses[:]}
             output = open('%s/set%s_param%s.pkl' % (DISTRIBUTION_DATA_FOLDER, set_idx, weight_idx), 'wb')
             pickle.dump(pickle_dict, output)
             output.close()
