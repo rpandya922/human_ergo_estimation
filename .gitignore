@@ -7,3 +7,4 @@ src/data
 *.txt
 avg_data/
 full_data/
+*.csv
