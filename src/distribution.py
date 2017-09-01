@@ -196,6 +196,28 @@ class SetWeightsParticleDistribution():
         self.particles = new_particles
         self.weights = [1/size]*size
         self.NUM_PARTICLES = size
+    def distribution_mode(self):
+        kernel = kde(np.array(self.particles).T)
+        xs = []
+        def kernel(x):
+            DOF = len(x)
+            cov = np.diag(np.ones(DOF)) * 0.25
+            likelihoods = mvn.pdf(self.particles, mean=x, cov=cov)
+            return np.sum(likelihoods) / self.NUM_PARTICLES
+        for _ in range(7):
+            start = np.random.uniform(size=7) * 6.28
+            start -= 3.14
+            res = minimize(lambda x: -kernel(x), start)
+            xs.append(res.x)
+        mode = max(xs, key=kernel)
+        return mode
+    def neg_log_likelihood_mean(self, data):
+        mode = self.distribution_mode()
+        total = 0
+        for (theta, feasible) in data:
+            total += pe.prob_theta_given_lam_stable_set_weight_num(theta, self.m, mode, self.cost, 1)
+            total -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, mode, self.cost, 1)
+        return -total
     def neg_log_likelihood(self, data):
         total = 0
         for (i, particle) in enumerate(self.particles):
@@ -404,3 +426,9 @@ class SetMeanParticleDistribution():
             avg_cost += weight * self.cost(theta, self.m, particle)
         # print str(avg_cost) + ": (" + str(np.amin(feasible)) + ", " + str(np.amax(feasible)) + ")"
         return avg_cost
+    def expected_cost2(self, feasible, mode):
+        probs = pe.prob_theta_given_lam_stable_set_weight_num(feasible, self.m, mode, self.cost, self.ALPHA_I)
+        probs -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, mode, self.cost, self.ALPHA_I)
+        probs = np.exp(probs)
+        costs = self.cost(feasible, self.m, mode)
+        return np.sum(probs * costs)
