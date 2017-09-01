@@ -36,7 +36,7 @@ TRUE_MEANS = np.array([[-2.60, -0.82, 0.42, 0.46, 1.43, -2.91, -0.12],
                        [-1.76, -2.36, -1.11, -2.36, -2.78, -0.88, 0.94],
                        [1.67, 0.63, -2.34, -0.73, 1.27, -0.38, 1.67],
                        [-0.48, -0.45, 1.78, 2.97, 1.49, 2.65, -2.23]])
-TRUE_MEANS = TRUE_MEANS / np.linalg.norm(TRUE_WEIGHTS, axis=1).reshape(-1, 1)
+TRUE_MEANS = TRUE_MEANS / np.linalg.norm(TRUE_MEANS, axis=1).reshape(-1, 1)
 TEST_SET_SIZE = 300
 NUM_PARTICLES = 1000
 NUM_TRAIN_ITERATIONS = 10
@@ -152,7 +152,7 @@ def train_min_cost(dist, data, ground_truth):
         ent_before = dist.entropy(num_boxes=20)
         for j in range(len(data)):
             t, f = data[j]
-            d = SetMeanParticleDistribution(dist.particles, dist.weights, dist.cost, dist.m, dist.ALPHA_I, dist.ALPHA_O, dist.h)
+            d = SetWeightsParticleDistribution(dist.particles, dist.weights, dist.cost, dist.w, dist.ALPHA_I, dist.ALPHA_O, dist.h)
             d.weights = d.reweight(t, f)
             actual_infos.append(ent_before - d.entropy(num_boxes=20))
 
@@ -213,7 +213,7 @@ def get_test_sets():
 datasets = []
 for mean_idx in args.means:
     print "Preprocessing mean %d..." % mean_idx
-    mean = TRUE_MEAN[mean_idx]
+    mean = TRUE_MEANS[mean_idx]
     data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
     # data, poses = np.array(preprocess_feasible(np.load('../data/rod_and_mug_data.npz')['data'], \
     # np.load('../data/rod_and_mug_data.npz')['poses'], False))
@@ -239,6 +239,7 @@ if __name__ == '__main__':
             np.random.seed(set_idx + (1000 * mean_idx))
             data = all_data[TEST_SET_SIZE:]
             idxs = np.random.choice(len(data), size=8)
+            data = np.array(data)[idxs]
             chosen_poses = poses[TEST_SET_SIZE:][idxs]
 
             particles = []
@@ -279,6 +280,6 @@ if __name__ == '__main__':
                             'expected_costs': expected_costs, 'training_poses': chosen_poses[:], \
                             'particles_active': particles_active, 'particles_passive': particles_passive, \
                             'particles_random': particles_random}
-            output = open('%s/set%s_param%s.pkl' % (DISTRIBUTION_DATA_FOLDER, set_idx, weight_idx), 'wb')
+            output = open('%s/set%s_param%s.pkl' % (DISTRIBUTION_DATA_FOLDER, set_idx, mean_idx), 'wb')
             pickle.dump(pickle_dict, output)
             output.close()

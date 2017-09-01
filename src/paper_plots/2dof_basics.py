@@ -172,7 +172,7 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False
         cset = ax.contour(xx, yy, f, colors='k')
     ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
 ###################################################################
-# data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-3, -1], [3, -1], 0.1)]
+data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-3, -1], [3, -1], 0.1)]
 # data_original = [create_box([-3, 2.5], [0, 1.5]), create_box([-3, 1], [0, 0]),\
 #                  create_box([-3, -0.5], [0, -1.5]), create_box([-3, -2], [0, -3]),\
 #                  create_box([0.5, 2.5], [3.5, 1.5]), create_box([0.5, 1], [3.5, 0]),\
@@ -188,13 +188,13 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False
 #                  np.vstack((mvn([3, 3], cov, 10), mvn([-3, 2], cov, 10), mvn([0, -3], cov, 10))),\
 #                  create_box([0, 3], [2.5, 1], 0.1), create_box([0, 3], [2.5, 1], 0.5),\
 #                  create_box([0, 3], [4.5, 2])]
-# data = [create_sample(feas) for feas in data_original]
-data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
-        create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
-        create_ellipse(0, -2, 1, 3), \
-        create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2)]
-data = [create_sample_from_xy(shape) for shape in data_original]
-plot_objects(data_original)
+data = [create_sample(feas) for feas in data_original]
+# data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
+#         create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
+#         create_ellipse(0, -2, 1, 3), \
+#         create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2)]
+# data = [create_sample_from_xy(shape) for shape in data_original]
+# plot_objects(data_original)
 plot_feas(data)
 
 particles = []
@@ -214,7 +214,7 @@ weights = np.array(weights) / np.sum(weights)
 dist = SetWeightsParticleDistribution(particles, weights, cost, w=TRUE_WEIGHTS, \
 ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=0.08)
 
-fig, axes = plt.subplots(nrows=2, ncols=4)
+fig, axes = plt.subplots(nrows=1, ncols=2)
 axes = np.ndarray.flatten(np.array(axes))
 # ax = axes[0]
 # data_means = np.array(dist.particles).T
@@ -227,7 +227,7 @@ for (i, (theta, feasible)) in enumerate(data):
     ax = axes[i]
     ax.set_yticklabels([])
     ax.set_xticklabels([])
-    plot_likelihood_heatmap(ax, theta, feasible, TRUE_MEAN)
+    plot_likelihood_heatmap(ax, theta, feasible, TRUE_MEAN, vmin=-22, vmax=-2.5)
     plt.pause(0.1)
 plt.pause(0.1)
 
