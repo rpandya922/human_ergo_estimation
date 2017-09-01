@@ -19,7 +19,7 @@ l2 = 3
 ALPHA = 10
 ALPHA_I = 1
 ALPHA_O = 1
-TRUE_MEAN = np.array([0, 0])
+TRUE_MEAN = np.array([0, 0.01])
 TRUE_WEIGHTS = np.array([1, 1])
 NUM_PARTICLES = 500
 two_pi = 2 * np.pi
@@ -59,16 +59,16 @@ def get_theta(x, y):
     theta2 = np.pi - inv_cos
     if np.isnan(inv_cos) or np.isnan(theta_prime):
         return []
-    # thetas = [[theta1_partial + theta_prime, -theta2], [theta1_partial - theta_prime, theta2]]
-    thetas = [[theta1_partial - theta_prime, theta2]]
+    thetas = [[theta1_partial + theta_prime, -theta2], [theta1_partial - theta_prime, theta2]]
+    # thetas = [[theta1_partial - theta_prime, theta2]]
     if thetas[0][0] > np.pi:
         thetas[0][0] -= two_pi
     elif thetas[0][0] < -np.pi:
         thetas[0][0] += two_pi
-    # if thetas[1][0] > np.pi:
-    #     thetas[1][0] -= two_pi
-    # elif thetas[1][0] < -np.pi:
-    #     thetas[1][0] += two_pi
+    if thetas[1][0] > np.pi:
+        thetas[1][0] -= two_pi
+    elif thetas[1][0] < -np.pi:
+        thetas[1][0] += two_pi
     return thetas
 def create_sample(feas):
     nums = pe.prob_theta_given_lam_stable_set_weight_num(feas, TRUE_MEAN, TRUE_WEIGHTS, cost, ALPHA)
@@ -94,6 +94,8 @@ def plot_objects(data):
     axes = np.ndarray.flatten(np.array(axes))
     for (i, feasible) in enumerate(data):
         ax = axes[i]
+        ax.set_yticklabels([])
+        ax.set_xticklabels([])
         ax.set_xlim(-6, 6)
         ax.set_ylim(-6, 6)
         ax.scatter(feasible[:,0], feasible[:,1])
@@ -152,31 +154,31 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False
         cset = ax.contour(xx, yy, f, colors='k')
     ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
 ###################################################################
-data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-3, -1], [3, -1]),\
-                 create_box([-1, 3], [-1, -3])]
+# data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-3, -1], [3, -1]),\
+#                  create_box([-1, 3], [-1, -3])]
 # data_original = [create_box([-3, 2.5], [0, 1.5]), create_box([-3, 1], [0, 0]),\
 #                  create_box([-3, -0.5], [0, -1.5]), create_box([-3, -2], [0, -3]),\
 #                  create_box([0.5, 2.5], [3.5, 1.5]), create_box([0.5, 1], [3.5, 0]),\
 #                  create_box([0.5, -0.5], [3.5, -1.5]), create_box([0.5, -2], [3.5, -3])]
-# data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-1, 3], [-1, -3]),\
-#                  create_ellipse(0, 2.5, 1, 2), create_box([-3, 2.5], [0, 1.5]),\
-#                  create_ellipse(0, 0, 2, 2), create_box([-3, 2.5], [0, 1.5], 0.1),\
-#                  create_ellipse(0, 1, 1, 2), create_ellipse(-1, 0, 1, 2)]
+data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-1, 3], [-1, -3]),\
+                 create_ellipse(0, 2.5, 1, 2), create_box([-3, 2.5], [0, 1.5]),\
+                 create_ellipse(0, 0, 2, 2), create_box([-3, 2.5], [0, 1.5], 0.1),\
+                 create_ellipse(0, 1, 1, 2), create_ellipse(-1, 0, 1, 2)]
 # cov = np.array([[0.1, 0], [0, 0.1]])
-data_original = [ create_box([-2, -2], [3, -2]), create_box([-1, 3], [-1, -3], 0.1),\
-                 create_box([-1, 3], [-1, -3], 0.5), np.array([[3, 3], [-3, 2]]),\
-                 np.vstack((mvn([3, 3], cov, 10), mvn([-3, 2], cov, 10))),\
-                 np.vstack((mvn([3, 3], cov, 10), mvn([-3, 2], cov, 10), mvn([0, -3], cov, 10))),\
-                 create_box([0, 3], [2.5, 1], 0.1), create_box([0, 3], [2.5, 1], 0.5),\
-                 create_box([0, 3], [4.5, 2])]
-data = [create_sample(feas) for feas in data_original]
-# data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
-#         create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
-#         create_ellipse(0, -2, 1, 3), \
-#         create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2)]
-# data = [create_sample_from_xy(shape) for shape in data_original]
-# plot_objects(data_original)
-# plot_feas(data)
+# data_original = [ create_box([-2, -2], [3, -2]), create_box([-1, 3], [-1, -3], 0.1),\
+#                  create_box([-1, 3], [-1, -3], 0.5), np.array([[3, 3], [-3, 2]]),\
+#                  np.vstack((mvn([3, 3], cov, 10), mvn([-3, 2], cov, 10))),\
+#                  np.vstack((mvn([3, 3], cov, 10), mvn([-3, 2], cov, 10), mvn([0, -3], cov, 10))),\
+#                  create_box([0, 3], [2.5, 1], 0.1), create_box([0, 3], [2.5, 1], 0.5),\
+#                  create_box([0, 3], [4.5, 2])]
+# data = [create_sample(feas) for feas in data_original]
+data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
+        create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
+        create_ellipse(0, -2, 1, 3), \
+        create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2)]
+data = [create_sample_from_xy(shape) for shape in data_original]
+plot_objects(data_original)
+plot_feas(data)
 
 particles = []
 weights = []
@@ -195,7 +197,7 @@ weights = np.array(weights) / np.sum(weights)
 dist = SetWeightsParticleDistribution(particles, weights, cost, w=TRUE_WEIGHTS, \
 ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=0.08)
 
-fig, axes = plt.subplots(nrows=3, ncols=3)
+fig, axes = plt.subplots(nrows=2, ncols=4)
 axes = np.ndarray.flatten(np.array(axes))
 # ax = axes[0]
 # data_means = np.array(dist.particles).T
@@ -206,9 +208,12 @@ axes = np.ndarray.flatten(np.array(axes))
 # cset = ax.contour(xx, yy, f, colors='k')
 for (i, (theta, feasible)) in enumerate(data):
     ax = axes[i]
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
     plot_likelihood_heatmap(ax, theta, feasible, TRUE_MEAN)
     plt.pause(0.1)
-
+plt.show()
+1/0
 def info_gain(dist, x):
     return (x, dist.info_gain(x[1], num_boxes=20), dist.expected_cost(x[1]))
 if __name__ == '__main__':
