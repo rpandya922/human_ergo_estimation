@@ -18,6 +18,7 @@ import utils
 import readline
 import argparse
 import pickle
+from tqdm import tqdm
 from scipy.stats import multivariate_normal as mvn
 
 parser = argparse.ArgumentParser()
@@ -39,7 +40,7 @@ TEST_SET_SIZE = 300
 NUM_PARTICLES = 1000
 NUM_TRAIN_ITERATIONS = 10
 training_data_size = 500
-DISTRIBUTION_DATA_FOLDER = '../data/random_selected'
+DISTRIBUTION_DATA_FOLDER = '../data/exp_likelihood_handpicked_new'
 def cost(theta, theta_star, w):
     d_theta = np.square(theta - theta_star)
     return d_theta.dot(w)
@@ -59,12 +60,15 @@ def get_distribution(feasible, cost, ground_truth, ALPHA):
 def create_sample(feasible, probs):
     idx = np.argmax(probs)
     return (feasible[idx], feasible)
-def preprocess_feasible(data, poses):
+def preprocess_feasible(data, poses, get_feasible=True):
     new_data_full = []
     new_poses = []
-    for i in range(data.shape[1]):
+    for i in tqdm(range(data.shape[1])):
     # for i in range(70):
-        feasible = np.array(get_feasible_set(data, i))
+        if get_feasible:
+            feasible = np.array(get_feasible_set(data, i))
+        else:
+            feasible = np.array(data[i])
         try:
             if feasible == None:
                 continue
@@ -81,12 +85,10 @@ def preprocess_feasible(data, poses):
         size=min(1000, len(feasible)))]
         new_data_full.append(uniform_feasible_full)
         new_poses.append(poses[i])
-        print "\r%d" % i,
-        sys.stdout.flush()
-    print
     return new_data_full, new_poses
 def train_active(dist, data, ground_truth):
     # data = full_data[np.random.choice(len(full_data), size=8)]
+    all_particles = [np.copy(dist.particles)]
     ground_truth_probs = [utils.prob_of_truth(dist, ground_truth)]
     ground_truth_dists = [utils.dist_to_truth(dist, ground_truth)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
@@ -119,11 +121,13 @@ def train_active(dist, data, ground_truth):
         data_likelihoods.append(-ll)
         all_expected_infos.append(expected_infos[:])
         all_actual_infos.append(actual_infos[:])
+        all_particles.append(np.copy(dist.particles))
         plt.pause(0.01)
     print
-    return ground_truth_probs, ground_truth_dists, data_likelihoods, all_expected_infos, all_actual_infos
+    return ground_truth_probs, ground_truth_dists, data_likelihoods, all_expected_infos, all_actual_infos, all_particles
 def train_min_cost(dist, data, ground_truth):
     # data = full_data[np.random.choice(len(full_data), size=8)]
+    all_particles = [np.copy(dist.particles)]
     ground_truth_probs = [utils.prob_of_truth(dist, ground_truth)]
     ground_truth_dists = [utils.dist_to_truth(dist, ground_truth)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
@@ -154,18 +158,21 @@ def train_min_cost(dist, data, ground_truth):
         ground_truth_dists.append(distance)
         data_likelihoods.append(-ll)
         all_expected_costs.append(expected_costs[:])
+        all_particles.append(np.copy(dist.particles))
         plt.pause(0.01)
     print
-    return ground_truth_probs, ground_truth_dists, data_likelihoods, all_expected_costs
+    return ground_truth_probs, ground_truth_dists, data_likelihoods, all_expected_costs, all_particles
 def train_random(dist, data, ground_truth):
     # data = full_data[np.random.choice(len(full_data), size=8)]
+    all_particles = [np.copy(dist.particles)]
     ground_truth_probs = [utils.prob_of_truth(dist, ground_truth)]
     ground_truth_dists = [utils.dist_to_truth(dist, ground_truth)]
     data_likelihoods = [-dist.neg_log_likelihood_mean(test_set)]
     for i in range(1, NUM_TRAIN_ITERATIONS):
         print "\rRandom on iteration %d of 9" % i,
         sys.stdout.flush()
-        (theta, feasible) = data[i % len(data)]
+        idx = np.random.choice(len(data))
+        (theta, feasible) = data[idx]
         dist.weights = dist.reweight(theta, feasible)
         dist.resample()
 
@@ -175,15 +182,18 @@ def train_random(dist, data, ground_truth):
         ground_truth_probs.append(prob)
         ground_truth_dists.append(distance)
         data_likelihoods.append(-ll)
+        all_particles.append(np.copy(dist.particles))
         plt.pause(0.01)
     print
-    return ground_truth_probs, ground_truth_dists, data_likelihoods
+    return ground_truth_probs, ground_truth_dists, data_likelihoods, all_particles
 def get_test_sets():
     datasets = []
     for weights_idx in args.weights:
+        print "Preprocessing test set %d..." % weights_idx
         weights = TRUE_WEIGHTS[weights_idx]
-        data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
-        print "preprocessed"
+        # data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
+        data, poses = np.array(preprocess_feasible(np.load('../data/rod_and_mug_data.npz')['data'], \
+        np.load('../data/rod_and_mug_data.npz')['poses'], False))
         training_data = []
         for i in range(len(data)):
             feasible = data[i]
@@ -194,19 +204,23 @@ def get_test_sets():
 ##############################################################
 datasets = []
 for weights_idx in args.weights:
+    print "Preprocessing weight %d..." % weights_idx
     weights = TRUE_WEIGHTS[weights_idx]
     # data, poses = np.array(preprocess_feasible(np.load('../data/rod_handpicked_data.npy'), np.load('../data/rod_handpicked_cases.npz')['pose_samples']))
-    data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
-    print "preprocessed"
+    # data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
+    data, poses = np.array(preprocess_feasible(np.load('../data/rod_and_mug_data.npz')['data'], \
+    np.load('../data/rod_and_mug_data.npz')['poses'], False))
     training_data = []
     for i in range(len(data)):
         feasible = data[i]
         probs = get_distribution(feasible, cost, weights, ALPHA)
         training_data.append(create_sample(feasible, probs))
     datasets.append(training_data)
-good_idxs = [2, 5, 18]
-bad_idxs = [0, 1, 11, 14, 23]
+# good_idxs = [2, 5, 18]
+# bad_idxs = [0, 1, 11, 14, 23]
+feasible_idxs = [2, 5, 18, 0, 1, 11, 14, 23]
 test_sets = get_test_sets()
+objects = np.load('../data/rod_and_mug_data.npz')['objects']
 def info_gain(dist, x):
     return (x, dist.info_gain(x[1], num_boxes=20), dist.expected_cost(x[1]))
 def min_cost(dist, x):
@@ -223,8 +237,10 @@ if __name__ == '__main__':
             # test_set = all_data[:TEST_SET_SIZE]
             data = all_data[TEST_SET_SIZE:]
             idxs = np.random.choice(len(data), size=8)
+            # idxs = feasible_idxs
             data = np.array(data)[idxs]
             chosen_poses = poses[TEST_SET_SIZE:][idxs]
+            chosen_objects = objects[TEST_SET_SIZE:][idxs]
             # test_set = all_data[25:35]
             # data = all_data[:8]
             # data = np.array(all_data)[TEST_SET_SIZE:]
@@ -249,9 +265,9 @@ if __name__ == '__main__':
             initial_dist = utils.dist_to_truth(dist_active, ground_truth_weights)
             initial_ll = -dist_active.neg_log_likelihood_mean(test_set)
 
-            probs_active, dists_active, ll_active, expected_infos, actual_infos = train_active(dist_active, data, ground_truth_weights)
-            probs_passive, dists_passive, ll_passive, expected_costs = train_min_cost(dist_passive, data, ground_truth_weights)
-            probs_random, dists_random, ll_random = train_random(dist_random, data, ground_truth_weights)
+            probs_active, dists_active, ll_active, expected_infos, actual_infos, particles_active = train_active(dist_active, data, ground_truth_weights)
+            probs_passive, dists_passive, ll_passive, expected_costs, particles_passive = train_min_cost(dist_passive, data, ground_truth_weights)
+            probs_random, dists_random, ll_random, particles_random = train_random(dist_random, data, ground_truth_weights)
 
             pickle_dict = {'training_data': data, 'weights': ground_truth_weights, \
                             'distribution_active': dist_active, 'distribution_passive': dist_passive, \
@@ -263,114 +279,9 @@ if __name__ == '__main__':
                             'initial_prob': initial_prob, 'initial_dist': initial_dist, \
                             'initial_ll': initial_ll, 'test_set': test_set, \
                             'expected_infos': expected_infos, 'actual_infos': actual_infos, \
-                            'expected_costs': expected_costs, 'training_poses': chosen_poses[:]}
+                            'expected_costs': expected_costs, 'training_poses': chosen_poses[:], \
+                            'particles_active': particles_active, 'particles_passive': particles_passive, \
+                            'particles_random': particles_random, 'training_objects': chosen_objects[:]}
             output = open('%s/set%s_param%s.pkl' % (DISTRIBUTION_DATA_FOLDER, set_idx, weight_idx), 'wb')
             pickle.dump(pickle_dict, output)
             output.close()
-
-
-    # ground_truth_probs_active = []
-    # ground_truth_dists_active = []
-    # data_likelihoods_active = []
-    #
-    # ground_truth_probs_passive = []
-    # ground_truth_dists_passive = []
-    # data_likelihoods_passive = []
-    #
-    # ground_truth_probs_random = []
-    # ground_truth_dists_random = []
-    # data_likelihoods_random = []
-    # for weight_idx, all_data in enumerate(datasets):
-    #     ground_truth_weights = TRUE_WEIGHTS[weight_idx]
-    #     for _ in range(10):
-    #         test_set = all_data[:TEST_SET_SIZE]
-    #         data = all_data[TEST_SET_SIZE:]
-    #         idxs = np.random.choice(len(data), size=8)
-    #         data = np.array(data)[idxs]
-    #
-    #         particles = []
-    #         weights = []
-    #         while len(particles) < NUM_PARTICLES:
-    #             p = np.random.randn(DOF, 1).T[0]
-    #             p = p / np.linalg.norm(p, axis=0)
-    #             if p[0] >= 0 and p[1] >= 0 and p[2] >= 0 and p[3] >= 0 and p[4] >= 0 and p[5] >= 0 and p[6] >= 0:
-    #                 particles.append(p)
-    #         particles = np.array(particles)
-    #         weights = np.ones(NUM_PARTICLES) / NUM_PARTICLES
-    #
-    #         dist_active = SetMeanParticleDistribution(particles, weights, utils.cost, m=TRUE_MEAN, \
-    #         ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=0.01)
-    #         dist_min_cost = SetMeanParticleDistribution(np.copy(particles), np.copy(weights), utils.cost, m=TRUE_MEAN, \
-    #         ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=0.01)
-    #         dist_random = SetMeanParticleDistribution(np.copy(particles), np.copy(weights), utils.cost, m=TRUE_MEAN, \
-    #         ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=0.01)
-    #
-    #         initial_prob = utils.prob_of_truth(dist_active, ground_truth_weights)
-    #         initial_dist = utils.dist_to_truth(dist_active, ground_truth_weights)
-    #         initial_ll = -dist_active.neg_log_likelihood_mean(test_set)
-    #
-    #         probs_active, dists_active, ll_active = train_active(dist_active, data, ground_truth_weights)
-    #         print "finished active"
-    #         probs_min_cost, dists_min_cost, ll_min_cost = train_min_cost(dist_min_cost, data, ground_truth_weights)
-    #         print "finished passive"
-    #         probs_random, dists_random, ll_random = train_random(dist_random, data, ground_truth_weights)
-    #         print "finished random"
-    #
-    #         probs_active[0] = initial_prob
-    #         probs_min_cost[0] = initial_prob
-    #         probs_random[0] = initial_prob
-    #         ground_truth_probs_active.append(probs_active)
-    #         ground_truth_probs_passive.append(probs_min_cost)
-    #         ground_truth_probs_random.append(probs_random)
-    #
-    #         dists_active[0] = initial_dist
-    #         dists_min_cost[0] = initial_dist
-    #         dists_random[0] = initial_dist
-    #         ground_truth_dists_active.append(dists_active)
-    #         ground_truth_dists_passive.append(dists_min_cost)
-    #         ground_truth_dists_random.append(dists_random)
-    #
-    #         ll_active[0] = initial_ll
-    #         ll_min_cost[0] = initial_ll
-    #         ll_random[0] = initial_ll
-    #         data_likelihoods_active.append(ll_active)
-    #         data_likelihoods_passive.append(ll_min_cost)
-    #         data_likelihoods_random.append(ll_random)
-    #
-    # probs_random = np.average(ground_truth_probs_random, axis=0)
-    # probs_passive = np.average(ground_truth_probs_passive, axis=0)
-    # probs_active = np.average(ground_truth_probs_active, axis=0)
-    # fig = plt.figure()
-    # ax = fig.add_subplot(131)
-    # ax.plot(probs_random, label='randomly selected')
-    # ax.plot(probs_passive, label='passive learning')
-    # ax.plot(probs_active, label='active learning')
-    # ax.legend(loc='upper left')
-    # ax.set_xlabel('iteration')
-    # ax.set_ylabel('probability density at ground truth')
-    # plt.pause(0.1)
-    #
-    # dists_random = np.average(ground_truth_dists_random, axis=0)
-    # dists_passive = np.average(ground_truth_dists_passive, axis=0)
-    # dists_active = np.average(ground_truth_dists_active, axis=0)
-    # ax = fig.add_subplot(132)
-    # ax.plot(dists_random, label='randomly selected')
-    # ax.plot(dists_passive, label='passive learning')
-    # ax.plot(dists_active, label='active learning')
-    # ax.legend(loc='upper left')
-    # ax.set_xlabel('iteration')
-    # ax.set_ylabel('distance of mean to ground truth')
-    # plt.pause(0.1)
-    #
-    # ll_random = np.average(data_likelihoods_random, axis=0)
-    # ll_passive = np.average(data_likelihoods_passive, axis=0)
-    # ll_active = np.average(data_likelihoods_active, axis=0)
-    # ax = fig.add_subplot(133)
-    # ax.plot(ll_random, label='randomly selected')
-    # ax.plot(ll_passive, label='passive learning')
-    # ax.plot(ll_active, label='active learning')
-    # ax.legend(loc='upper left')
-    # ax.set_xlabel('iteration')
-    # ax.set_ylabel('log likelihood of test set')
-    # plt.pause(0.1)
-    # plt.show()
