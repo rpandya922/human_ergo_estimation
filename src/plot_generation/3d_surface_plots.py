@@ -9,6 +9,8 @@ from random import shuffle
 import utils
 import readline
 from scipy.stats import multivariate_normal as mvn
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
 from matplotlib import cm
 from numpy.random import randn
 from scipy import array, newaxis
@@ -17,18 +19,20 @@ from mayavi.mlab import *
 DEFAULT_DATA_FILE = 'sim_rod_weight_learning.npz'
 datafile = utils.prefilled_input('Simulation data file: ', DEFAULT_DATA_FILE)
 f = np.load('../data/' + datafile)
-idxs = list(range(25))
-data = f['data']
-
-theta, feasible = data[0]
-theta = theta[:3]
-feasible = feasible[:,:3]
-data_feas = feasible.T
-kernel = kde(data_feas)
-x, y, z = np.ogrid[-5:5:64j, -5:5:64j, -5:5:64j]
-scalars = kernel(np.ogrid[-5:5:64j, -5:5:64j, -5:5:64j])
-print scalars.shape
-1/0
-scalars = x * x * 0.5 + y * y + z * z * 2.0
-obj = contour3d(scalars, contours=4, transparent=True)
-show()
+data = f['data_full']
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+for feasible in data:
+    ax.cla()
+    feasible = feasible[:,:3]
+    ax.scatter(feasible[:,0], feasible[:,1], feasible[:,2])
+    plt.pause(0.1)
+    data_feas = feasible.T
+    kernel = kde(data_feas)
+    xx, yy, zz = np.mgrid[-3.14:3.14:64j, \
+                          -3.14:3.14:64j, \
+                          -3.14:3.14:64j]
+    positions = np.vstack([xx.ravel(), yy.ravel(), zz.ravel()])
+    scalars = np.reshape(kernel(positions).T, xx.shape)
+    obj = contour3d(xx, yy, zz, scalars)
+    show()
