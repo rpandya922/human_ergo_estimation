@@ -204,10 +204,10 @@ class SetWeightsParticleDistribution():
             cov = np.diag(np.ones(DOF)) * 0.5
             likelihoods = mvn.pdf(self.particles, mean=x, cov=cov)
             return np.sum(likelihoods) / self.NUM_PARTICLES
-        cov = np.diag(np.ones(7)) * 0.2
-        for _ in range(7):
+        cov = np.diag(np.ones(len(self.particles[0]))) * 0.2
+        for _ in range(1):
             start = np.mean(self.particles, axis=0)
-            start += np.random.multivariate_normal(mean=start, cov=cov)
+            # start += np.random.multivariate_normal(mean=start, cov=cov)
             # print "start: " + str(start)
             res = minimize(lambda x: -kernel(x), start)
             # print "end: " + str(res.x)
@@ -215,7 +215,8 @@ class SetWeightsParticleDistribution():
         mode = max(xs, key=kernel)
         return mode
     def neg_log_likelihood_mean(self, data):
-        mode = self.distribution_mode()
+        # mode = self.distribution_mode()
+        mode = np.mean(self.particles, axis=0)
         total = 0
         for (theta, feasible) in data:
             total += pe.prob_theta_given_lam_stable_set_weight_num(theta, mode, self.w, self.cost, 1)
@@ -361,7 +362,7 @@ class SetMeanParticleDistribution():
             likelihoods = mvn.pdf(self.particles, mean=x, cov=cov)
             return np.sum(likelihoods) / self.NUM_PARTICLES
         for _ in range(7):
-            start = np.random.uniform(size=7)
+            start = np.random.uniform(size=len(self.particles[0]))
             start = start / np.linalg.norm(start)
             res = minimize(lambda x: -kernel(x), start)
             xs.append(res.x)
@@ -376,9 +377,35 @@ class SetMeanParticleDistribution():
                 ll -= pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, particle, self.cost, 1)
             total += (ll * self.weights[i])
         return -total
-    def neg_log_likelihood_mean(self, data):
+    def neg_log_likelihood_mean(self, data, i=0, title=''):
         # mean = np.mean(self.particles, axis=0)
         mode = self.distribution_mode()
+        # mode = np.mean(self.particles, axis=0)
+        # mode = mode / np.linalg.norm(mode)
+        # if i == 9:
+        #     fig, axes = plt.subplots(nrows=2, ncols=2)
+        #     axes = np.ndarray.flatten(np.array(axes))
+        #     for i, ax in enumerate(axes):
+        #         theta, feasible = data[i]
+        #         ax.set_yticklabels([])
+        #         ax.set_xticklabels([])
+        #         xx, yy = np.mgrid[-5:5:100j, -5:5:100j]
+        #         positions = np.vstack([xx.ravel(), yy.ravel()])
+        #         def likelihood(idx, point):
+        #             alpha = self.ALPHA_I
+        #             return pe.prob_theta_given_lam_stable_set_weight_num(point, self.m, mode, self.cost, alpha)\
+        #             -pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, mode, self.cost, alpha)
+        #         likelihoods = np.array([likelihood(idx, p) for idx, p in enumerate(positions.T)])
+        #         # print np.amin(likelihoods)
+        #         # print "max: " + str(np.amax(likelihoods))
+        #         f = np.reshape(likelihoods.T, xx.shape)
+        #         ax.imshow(np.flip(f, 1).T, cmap='inferno', interpolation='nearest', extent=(-5, 5, -5, 5), vmin=-33, vmax=0)
+        #         ax.scatter(feasible[:,0], feasible[:,1], c='C0')
+        #         ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
+        #         fig.suptitle(title)
+        #         plt.pause(0.01)
+        #         print pe.prob_theta_given_lam_stable_set_weight_num(theta, self.m, mode, self.cost, 1)\
+        #         -pe.prob_theta_given_lam_stable_set_weight_denom(feasible, self.m, mode, self.cost, 1)
         total = 0
         for (theta, feasible) in data:
             total += pe.prob_theta_given_lam_stable_set_weight_num(theta, self.m, mode, self.cost, 1)

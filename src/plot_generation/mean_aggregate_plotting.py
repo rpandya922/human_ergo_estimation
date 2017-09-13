@@ -5,6 +5,10 @@ from openravepy import *
 import prpy
 import numpy as np
 import seaborn
+from matplotlib import rc
+# rc('text', usetex=True)
+# rc('font', **{'family':'sans-serif', 'serif': 'Times', 'sans-serif':['Helvetica']})
+seaborn.set_style('ticks')
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from scipy.stats import gaussian_kde as kde
@@ -23,7 +27,12 @@ import csv
 from tqdm import tqdm
 ################################################################################
 # CONSTANTS/FUNCTIONS
-DATA_LOCATION = '../data/mean_rod_only'
+ACTIVE_COLOR = '#ffaa00'
+# PASSIVE_COLOR = '#24e2cc'
+PASSIVE_COLOR = '#46c6db'
+# RANDOM_COLOR = '#704300'
+RANDOM_COLOR = '#c68400'
+DATA_LOCATION = '../data/mean_bike_sim_good_trials'
 TRUE_WEIGHTS = np.ones(7)
 def calc_error_bounds(data):
     n = np.array(data).shape[1]
@@ -35,11 +44,12 @@ def cost(theta, theta_star, w):
     return d_theta.dot(w)
 def prob_of_truth(dist, ground_truth):
     DOF = len(dist.particles[0])
-    cov = np.diag(np.ones(DOF)) * 0.25
+    cov = np.diag(np.ones(DOF)) * 1
     likelihoods = mvn.pdf(dist.particles, mean=ground_truth, cov=cov)
     return np.sum(likelihoods) / dist.NUM_PARTICLES
 def dist_to_truth(dist, ground_truth):
-    mode = dist.distribution_mode()
+    # mode = dist.distribution_mode()
+    mode = np.mean(dist.particles, axis=0)
     return np.linalg.norm(mode - ground_truth)
 def plot_info_bars(expected_infos, actual_infos):
     bar_fig, bar_axes = plt.subplots(nrows=2, ncols=5)
@@ -60,44 +70,119 @@ def plot_cost_bars(expected_costs):
         ax.bar(np.arange(len(costs)), costs, 0.35, color='C0', label='expected cost')
         ax.bar(min_idx, costs[min_idx], 0.35, color='C2', label='chosen set expected cost')
     plt.pause(0.01)
-# def plot_poses(data, poses):
-#     env, human, robot, target, target_desc = load_environment_file('../data/rod_full_problem_def.npz')
-#     env.SetViewer('qtcoin')
-#     newrobots = []
-#     for ind in range(15):
-#         newrobot = RaveCreateRobot(env,human.GetXMLId())
-#         newrobot.Clone(human,0)
-#         for link in newrobot.GetLinks():
-#             for geom in link.GetGeometries():
-#                 geom.SetTransparency(0.8)
-#         newrobots.append(newrobot)
-#     for link in robot.GetLinks():
-#         for geom in link.GetGeometries():
-#             geom.SetTransparency(0.8)
-#     for (i, (theta, feasible)) in enumerate(data):
-#         target.SetTransform(poses[i])
-#         with env:
-#             inds = np.array(np.linspace(0,len(feasible)-1,15),int)
-#             for j,ind in enumerate(inds):
-#                 newrobot = newrobots[j]
-#                 env.Add(newrobot,True)
-#                 newrobot.SetTransform(human.GetTransform())
-#                 newrobot.SetDOFValues(feasible[ind], human.GetActiveManipulator().GetArmIndices())
-#         env.UpdatePublishedBodies()
-        # raw_input('Displaying pose ' + str(i) + ', press <Enter> to continue:')
-def plot_belief(ax, particles, ground_truth, second=False):
+def load_object_desc(desc_string):
+    result = eval(desc_string)
+    for tsr_name in result['human_tsrs'].keys():
+        tsr_obj = prpy.tsr.TSR(**result['human_tsrs'][tsr_name])
+        result['human_tsrs'][tsr_name] = tsr_obj
+    for tsr_name in result['robot_tsrs'].keys():
+        tsr_obj = prpy.tsr.TSR(**result['robot_tsrs'][tsr_name])
+        result['robot_tsrs'][tsr_name] = tsr_obj
+    return result
+def load(filename):
+    return np.load(filename)
+def load_txt(filename):
+    with open(filename, 'r') as file_handle:
+        object_string = file_handle.read()
+    return load_object_desc(object_string)
+def load_environment_file(filename):
+    problem_def = load(filename)
+    human_file = problem_def['human_file'].tostring()
+    robot_file = problem_def['robot_file'].tostring()
+    object_file = problem_def['object_file'].tostring()
+    target_desc = load_txt('../data/' + object_file)
+    human_base_pose = problem_def['human_base_pose']
+    robot_base_pose = problem_def['robot_base_pose']
+    object_start_pose = problem_def['object_start_pose']
+    problem_def.close()
+    return load_environment(human_file, robot_file, object_file,
+            human_base_pose, robot_base_pose, object_start_pose)
+def load_environment(human_file, robot_file, object_file,
+        human_base_pose, robot_base_pose, object_start_pose):
+    env = Environment()
+
+    #Add the human
+    human = env.ReadKinBodyXMLFile(human_file)
+    env.AddKinBody(human)
+
+    env.GetCollisionChecker().SetCollisionOptions(0)
+    manip = human.SetActiveManipulator('rightarm')
+    human.SetTransform(human_base_pose)
+
+    human.GetLink('Hips').SetVisible(False)
+    hand_joints = []
+    hand_joints.append(human.GetJointIndex('JLFing11'))
+    hand_joints.append(human.GetJointIndex('JLFing21'))
+    hand_joints.append(human.GetJointIndex('JLFing31'))
+    hand_joints.append(human.GetJointIndex('JLFing41'))
+    hand_joints.append(human.GetJointIndex('JLFing10'))
+    hand_joints.append(human.GetJointIndex('JLFing20'))
+    hand_joints.append(human.GetJointIndex('JLFing30'))
+    hand_joints.append(human.GetJointIndex('JLFing40'))
+    hand_joints.append(human.GetJointIndex('JRFing11'))
+    hand_joints.append(human.GetJointIndex('JRFing21'))
+    hand_joints.append(human.GetJointIndex('JRFing31'))
+    hand_joints.append(human.GetJointIndex('JRFing41'))
+    hand_joints.append(human.GetJointIndex('JRFing10'))
+    hand_joints.append(human.GetJointIndex('JRFing20'))
+    hand_joints.append(human.GetJointIndex('JRFing30'))
+    hand_joints.append(human.GetJointIndex('JRFing40'))
+    human.SetDOFValues([0.5]*16, hand_joints)
+
+    #Add the robot
+    with env:
+         robot = env.ReadRobotXMLFile(robot_file)
+    #Add the object
+    target_desc = load_txt('../data/' + object_file)
+    with env:
+        target = env.ReadKinBodyXMLFile(target_desc['object_file'])
+        print target_desc['object_file']
+        env.AddKinBody(target)
+        target.SetTransform(object_start_pose)
+
+    return env, human, robot, target, target_desc
+def plot_poses(data, poses):
+    env, human, robot, target, target_desc = load_environment_file('../data/handlebars_problem_def.npz')
+    env.SetViewer('qtcoin')
+    newrobots = []
+    for ind in range(15):
+        newrobot = RaveCreateRobot(env,human.GetXMLId())
+        newrobot.Clone(human,0)
+        for link in newrobot.GetLinks():
+            for geom in link.GetGeometries():
+                geom.SetTransparency(0.8)
+        newrobots.append(newrobot)
+    for link in robot.GetLinks():
+        for geom in link.GetGeometries():
+            geom.SetTransparency(0.8)
+    for (i, (theta, feasible)) in enumerate(data):
+        target.SetTransform(poses[i])
+        with env:
+            inds = np.array(np.linspace(0,len(feasible)-1,15),int)
+            for j,ind in enumerate(inds):
+                newrobot = newrobots[j]
+                env.Add(newrobot,True)
+                newrobot.SetTransform(human.GetTransform())
+                newrobot.SetDOFValues(feasible[ind], human.GetActiveManipulator().GetArmIndices())
+        env.UpdatePublishedBodies()
+        raw_input('Displaying pose ' + str(i) + ', press <Enter> to continue:')
+def plot_belief(ax, particles, ground_truth):
     data_means = particles.T
     kernel = kde(data_means)
-    xx, yy = np.mgrid[-2:1:100j, -3:0.5:100j]
+    xx, yy = np.mgrid[-3.14:3.14:100j, -3.14:3.14:100j]
     positions = np.vstack([xx.ravel(), yy.ravel()])
     f = np.reshape(kernel(positions).T, xx.shape)
     cfset = ax.contourf(xx, yy, f, cmap='Greens')
     cset = ax.contour(xx, yy, f, colors='k')
     ax.clabel(cset, inline=1, fontsize=10)
     ax.scatter(ground_truth[0], ground_truth[1], c='C3', s=200, zorder=2)
-def plot_beliefs(all_particles):
+def plot_beliefs(all_particles, ground_truth, title=''):
     fig, axes = plt.subplots(nrows=5, ncols=2)
     axes = np.ndarray.flatten(np.array(axes))
+    fig.suptitle(title)
+    for i, particles, in enumerate(all_particles):
+        plot_belief(axes[i], particles[:,:2], ground_truth)
+        plt.pause(0.01)
 def neg_log_likelihood(data, ground_truth):
     total = 0
     for (theta, feasible) in data:
@@ -148,6 +233,14 @@ def value_of_info_metric(all_particles, test_set, ground_truth):
         min_cost_feas, min_cost = min(feas_costs, key=lambda x: x[1])
         vals.append(expected_cost(min_cost_feas, ground_truth))
     return vals, [true_min_cost] * len(all_particles)
+def entropy_metric(all_particles):
+    ents = []
+    for particles in all_particles:
+        weights = np.ones(particles.shape[0]) / particles.shape[0]
+        dist = SetWeightsParticleDistribution(np.array(particles), np.array(weights), \
+        cost, TRUE_WEIGHTS, 1, 1, 0.03)
+        ents.append(dist.entropy(num_boxes=10))
+    return ents
 ################################################################################
 value_infos_ground_truth = []
 log_likelihoods_ground_truth = []
@@ -156,19 +249,27 @@ ground_truth_probs_active = []
 ground_truth_dists_active = []
 data_likelihoods_active = []
 value_infos_active = []
+entropys_active = []
+normalized_likelihoods_active = []
 
 ground_truth_probs_passive = []
 ground_truth_dists_passive = []
 data_likelihoods_passive = []
 value_infos_passive = []
+entropys_passive = []
+normalized_likelihoods_passive = []
 
 ground_truth_probs_random = []
 ground_truth_dists_random = []
 data_likelihoods_random = []
 value_infos_random = []
+entropys_random = []
+normalized_likelihoods_random = []
+# in bike simulation: folder data/mean_bike_sim_overnight, set 9: active
+# does well, set 14: passive does poorly
 test_set = []
 weights = []
-for set_idx in tqdm(range(10)):
+for set_idx in tqdm([9]):
     for param_idx in tqdm(range(5)):
         try:
             pkl_file = open('%s/set%s_param%s.pkl' % (DATA_LOCATION, set_idx, param_idx), 'rb')
@@ -177,9 +278,13 @@ for set_idx in tqdm(range(10)):
         data = pickle.load(pkl_file)
         test_set = data['test_set']
         mean = data['mean']
+        plot_poses(data['training_data'], data['training_poses'])
+        # plot_beliefs(data['particles_active'], mean, 'active')
+        # plot_beliefs(data['particles_passive'], mean, 'passive')
+        # plot_beliefs(data['particles_random'], mean, 'random')
         # plot_info_bars(data['expected_infos'], data['actual_infos'])
         # plot_cost_bars(data['expected_costs'])
-        # plot_final_belief(data['distribution_active'], weights, 'active')
+        # # plot_final_belief(data['distribution_active'], weights, 'active')
         # plot_final_belief(data['distribution_passive'], weights, 'passive')
         # plot_final_belief(data['distribution_random'], weights, 'random')
 
@@ -215,6 +320,10 @@ for set_idx in tqdm(range(10)):
         val_info_passive, _ = value_of_info_metric(data['particles_passive'], test_set, mean)
         val_info_random, _ = value_of_info_metric(data['particles_random'], test_set, mean)
 
+        entropy_active = entropy_metric(data['particles_active'])
+        entropy_passive = entropy_metric(data['particles_passive'])
+        entropy_random = entropy_metric(data['particles_random'])
+
         # probs_active[0] = initial_prob
         # probs_passive[0] = initial_prob
         # probs_random[0] = initial_prob
@@ -241,7 +350,17 @@ for set_idx in tqdm(range(10)):
         value_infos_random.append(val_info_random)
         value_infos_ground_truth.append(val_info_gt)
 
-        log_likelihoods_ground_truth.append([-neg_log_likelihood(test_set, mean)] * 10)
+        entropys_active.append(entropy_active)
+        entropys_passive.append(entropy_passive)
+        entropys_random.append(entropy_random)
+
+        ground_truth_likelihood = np.array([-neg_log_likelihood(test_set, mean)] * 10)
+        log_likelihoods_ground_truth.append(ground_truth_likelihood)
+
+        normalized_likelihoods_active.append(np.exp(ll_active - ground_truth_likelihood))
+        normalized_likelihoods_passive.append(np.exp(ll_passive - ground_truth_likelihood))
+        normalized_likelihoods_random.append(np.exp(ll_random - ground_truth_likelihood))
+
 
 # plot_poses(data['training_data'], data['training_poses'])
 # plot_final_belief(data['distribution_active'], weights, 'active')
@@ -258,21 +377,24 @@ error_values_passive = calc_error_bounds(value_infos_passive)
 error_values_random = calc_error_bounds(value_infos_random)
 error_values_gt = calc_error_bounds(value_infos_ground_truth)
 
-fig = plt.figure()
-ax = fig.add_subplot(221)
+fig = plt.figure(figsize=(13, 12))
+ax = fig.add_subplot(321)
 ax.set_xlim(0, 9)
 ax.plot()
-ax.plot(values_random, c='C0', label='randomly selected')
-ax.plot(values_passive, c='C1', label='passive learning')
-ax.plot(values_active, c='C2', label='active learning')
-ax.plot(values_gt, c='C3', label='ground truth')
-ax.fill_between(x, values_random - error_values_random, values_random + error_values_random, color='C0', alpha=0.3)
-ax.fill_between(x, values_passive - error_values_passive, values_passive + error_values_passive, color='C1', alpha=0.3)
-ax.fill_between(x, values_active - error_values_active, values_active + error_values_active, color='C2', alpha=0.3)
-ax.fill_between(x, values_gt - error_values_gt, values_gt + error_values_gt, color='C3', alpha=0.3)
-ax.legend(loc='upper left')
+ax.plot(values_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
+ax.plot(values_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
+ax.plot(values_active, c=ACTIVE_COLOR, lw=3, label='active learning')
+ax.plot(values_gt, c='k', linestyle='dashed', lw=3, label='ground truth')
+ax.fill_between(x, values_random - error_values_random, values_random + error_values_random, color=RANDOM_COLOR, alpha=0.3)
+ax.fill_between(x, values_passive - error_values_passive, values_passive + error_values_passive, color=PASSIVE_COLOR, alpha=0.3)
+ax.fill_between(x, values_active - error_values_active, values_active + error_values_active, color=ACTIVE_COLOR, alpha=0.3)
+ax.fill_between(x, values_gt - error_values_gt, values_gt + error_values_gt, color='k', alpha=0.3)
+lgnd = ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left")
+lgnd.legendHandles[0]._sizes = [30]
+lgnd.legendHandles[1]._sizes = [30]
+lgnd.legendHandles[2]._sizes = [30]
 ax.set_xlabel('iteration')
-ax.set_ylabel('value of information (?)')
+ax.set_ylabel('value of information')
 plt.pause(0.1)
 
 probs_random = np.mean(ground_truth_probs_random, axis=0)
@@ -282,15 +404,14 @@ error_probs_random = calc_error_bounds(ground_truth_probs_random)
 error_probs_passive = calc_error_bounds(ground_truth_probs_passive)
 error_probs_active = calc_error_bounds(ground_truth_probs_active)
 
-ax = fig.add_subplot(222)
+ax = fig.add_subplot(322)
 ax.set_xlim(0, 9)
-ax.plot(probs_random, label='randomly selected')
-ax.plot(probs_passive, label='passive learning')
-ax.plot(probs_active, label='active learning')
-ax.fill_between(x, probs_random - error_probs_random, probs_random + error_probs_random, alpha=0.3)
-ax.fill_between(x, probs_passive - error_probs_passive, probs_passive + error_probs_passive, alpha=0.3)
-ax.fill_between(x, probs_active - error_probs_active, probs_active + error_probs_active, alpha=0.3)
-ax.legend(loc='upper left')
+ax.plot(probs_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
+ax.plot(probs_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
+ax.plot(probs_active, c=ACTIVE_COLOR, lw=3, label='active learning')
+ax.fill_between(x, probs_random - error_probs_random, probs_random + error_probs_random, color=RANDOM_COLOR, alpha=0.3)
+ax.fill_between(x, probs_passive - error_probs_passive, probs_passive + error_probs_passive, color=PASSIVE_COLOR, alpha=0.3)
+ax.fill_between(x, probs_active - error_probs_active, probs_active + error_probs_active, color=ACTIVE_COLOR, alpha=0.3)
 ax.set_xlabel('iteration')
 ax.set_ylabel('probability density at ground truth')
 plt.pause(0.1)
@@ -302,15 +423,14 @@ error_dists_random = calc_error_bounds(ground_truth_dists_random)
 error_dists_passive = calc_error_bounds(ground_truth_dists_passive)
 error_dists_active = calc_error_bounds(ground_truth_dists_active)
 
-ax = fig.add_subplot(223)
+ax = fig.add_subplot(323)
 ax.set_xlim(0, 9)
-ax.plot(dists_random, label='randomly selected')
-ax.plot(dists_passive, label='passive learning')
-ax.plot(dists_active, label='active learning')
-ax.fill_between(x, dists_random - error_dists_random, dists_random + error_dists_random, alpha=0.3)
-ax.fill_between(x, dists_passive - error_dists_passive, dists_passive + error_dists_passive, alpha=0.3)
-ax.fill_between(x, dists_active - error_dists_active, dists_active + error_dists_active, alpha=0.3)
-ax.legend(loc='upper left')
+ax.plot(dists_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
+ax.plot(dists_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
+ax.plot(dists_active, c=ACTIVE_COLOR, lw=3, label='active learning')
+ax.fill_between(x, dists_random - error_dists_random, dists_random + error_dists_random, color=RANDOM_COLOR, alpha=0.3)
+ax.fill_between(x, dists_passive - error_dists_passive, dists_passive + error_dists_passive, color=PASSIVE_COLOR, alpha=0.3)
+ax.fill_between(x, dists_active - error_dists_active, dists_active + error_dists_active, color=ACTIVE_COLOR, alpha=0.3)
 ax.set_xlabel('iteration')
 ax.set_ylabel('distance of mode to ground truth')
 plt.pause(0.1)
@@ -325,18 +445,56 @@ ll_passive = np.mean(data_likelihoods_passive, axis=0)
 ll_active = np.mean(data_likelihoods_active, axis=0)
 ll_gt = np.mean(log_likelihoods_ground_truth, axis=0)
 
-ax = fig.add_subplot(224)
+ax = fig.add_subplot(324)
 ax.set_xlim(0, 9)
-ax.plot(ll_random, label='randomly selected')
-ax.plot(ll_passive, label='passive learning')
-ax.plot(ll_active, label='active learning')
-ax.plot(ll_gt, label='ground truth')
-ax.fill_between(x, ll_random - error_ll_random, ll_random + error_ll_random, alpha=0.3)
-ax.fill_between(x, ll_passive - error_ll_passive, ll_passive + error_ll_passive, alpha=0.3)
-ax.fill_between(x, ll_active - error_ll_active, ll_active + error_ll_active, alpha=0.3)
-ax.fill_between(x, ll_gt - error_ll_gt, ll_gt + error_ll_gt, alpha=0.3)
-ax.legend(loc='upper left')
+ax.plot(ll_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
+ax.plot(ll_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
+ax.plot(ll_active, c=ACTIVE_COLOR, lw=3, label='active learning')
+ax.plot(ll_gt, c='k', linestyle='dashed', lw=3, label='ground truth')
+ax.fill_between(x, ll_random - error_ll_random, ll_random + error_ll_random, color=RANDOM_COLOR, alpha=0.3)
+ax.fill_between(x, ll_passive - error_ll_passive, ll_passive + error_ll_passive, color=PASSIVE_COLOR, alpha=0.3)
+ax.fill_between(x, ll_active - error_ll_active, ll_active + error_ll_active, color=ACTIVE_COLOR, alpha=0.3)
+ax.fill_between(x, ll_gt - error_ll_gt, ll_gt + error_ll_gt, color='k',  alpha=0.3)
 ax.set_xlabel('iteration')
 ax.set_ylabel('log likelihood of test set')
+plt.pause(0.1)
+
+ents_random = np.mean(entropys_random, axis=0)
+ents_passive = np.mean(entropys_passive, axis=0)
+ents_active = np.mean(entropys_active, axis=0)
+error_ents_random = calc_error_bounds(entropys_random)
+error_ents_passive = calc_error_bounds(entropys_passive)
+error_ents_active = calc_error_bounds(entropys_active)
+
+ax = fig.add_subplot(325)
+ax.set_xlim(0, 9)
+ax.plot(ents_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
+ax.plot(ents_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
+ax.plot(ents_active, c=ACTIVE_COLOR, lw=3, label='active learning')
+ax.fill_between(x, ents_random - error_ents_random, ents_random + error_ents_random, color=RANDOM_COLOR, alpha=0.3)
+ax.fill_between(x, ents_passive - error_ents_passive, ents_passive + error_ents_passive, color=PASSIVE_COLOR, alpha=0.3)
+ax.fill_between(x, ents_active - error_ents_active, ents_active + error_ents_active, color=ACTIVE_COLOR, alpha=0.3)
+ax.set_xlabel('iteration')
+ax.set_ylabel('entropy of belief')
+plt.pause(0.1)
+
+norm_ll_random = np.mean(normalized_likelihoods_random, axis=0)
+norm_ll_passive = np.mean(normalized_likelihoods_passive, axis=0)
+norm_ll_active = np.mean(normalized_likelihoods_active, axis=0)
+error_norm_ll_random = calc_error_bounds(normalized_likelihoods_random)
+error_norm_ll_passive = calc_error_bounds(normalized_likelihoods_passive)
+error_norm_ll_active = calc_error_bounds(normalized_likelihoods_active)
+
+ax = fig.add_subplot(326)
+ax.set_xlim(0, 9)
+ax.plot(norm_ll_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
+ax.plot(norm_ll_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
+ax.plot(norm_ll_active, c=ACTIVE_COLOR, lw=3, label='active learning')
+# ax.plot([1] * 10, c='k', linestyle='dashed', lw=3, label='ground truth')
+ax.fill_between(x, norm_ll_random - error_norm_ll_random, norm_ll_random + error_norm_ll_random, color=RANDOM_COLOR, alpha=0.3)
+ax.fill_between(x, norm_ll_passive - error_norm_ll_passive, norm_ll_passive + error_norm_ll_passive, color=PASSIVE_COLOR, alpha=0.3)
+ax.fill_between(x, norm_ll_active - error_norm_ll_active, norm_ll_active + error_norm_ll_active, color=ACTIVE_COLOR, alpha=0.3)
+ax.set_xlabel('iteration')
+ax.set_ylabel('normalized likelihood')
 plt.pause(0.1)
 plt.show()

@@ -29,6 +29,9 @@ TRUE_MEAN = np.array([0, 0])
 TRUE_WEIGHTS = np.array([1, 1])
 NUM_PARTICLES = 500
 two_pi = 2 * np.pi
+FEASIBLE_COLOR = '#31dcff'
+GROUND_TRUTH_COLOR = '#38ff42'
+PICKED_COLOR = ''
 def cost(theta, theta_star, w):
     d_theta = np.square(theta - theta_star)
     return d_theta.dot(w)
@@ -124,7 +127,7 @@ def plot_belief(ax, particles, ground_truth, i=1):
     xx, yy = np.mgrid[-6:6:100j, -6:6:100j]
     positions = np.vstack([xx.ravel(), yy.ravel()])
     f = np.reshape(kernel(positions).T, xx.shape)
-    cfset = ax.contourf(xx, yy, f, cmap='Greens')
+    cfset = ax.contourf(xx, yy, f, cmap='gist_gray_r')
     cset = ax.contour(xx, yy, f, colors='k')
     ax.scatter(ground_truth[0], ground_truth[1], c='C3', s=200, zorder=2, label=r"$\theta^{*}$")
     if i != 0:
@@ -160,7 +163,7 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False
     print np.amin(likelihoods)
     print "max: " + str(np.amax(likelihoods))
     f = np.reshape(likelihoods.T, xx.shape)
-    ax.imshow(np.flip(f, 1).T, cmap='inferno', interpolation='nearest', extent=(-5, 5, -5, 5), vmin=vmin, vmax=vmax)
+    ax.imshow(np.flip(f, 1).T, cmap='gist_gray_r', interpolation='nearest', extent=(-5, 5, -5, 5), vmin=vmin, vmax=vmax)
     ax.scatter(feasible[:,0], feasible[:,1], c='C0')
     ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
     if with_belief:
@@ -227,7 +230,8 @@ for (i, (theta, feasible)) in enumerate(data):
     ax = axes[i]
     ax.set_yticklabels([])
     ax.set_xticklabels([])
-    plot_likelihood_heatmap(ax, theta, feasible, TRUE_MEAN, vmin=-22, vmax=-2.5)
+    # plot_likelihood_heatmap(ax, theta, feasible, TRUE_MEAN, vmin=-22, vmax=-2.5)
+    plot_likelihood_heatmap(ax, theta, feasible, TRUE_MEAN, vmin=-22, vmax=10)
     plt.pause(0.1)
 plt.pause(0.1)
 
@@ -245,8 +249,8 @@ if __name__ == '__main__':
     ax = axes[0]
     plot_belief(ax, np.array(dist.particles), TRUE_MEAN, 0)
     plt.pause(0.1)
-    # plt.show()
-    # 1/0
+    plt.show()
+    1/0
     for i in range(1, len(axes)):
         func = partial(info_gain, dist)
         pooled = pool.map(func, data)

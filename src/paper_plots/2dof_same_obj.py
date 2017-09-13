@@ -16,17 +16,16 @@ from tqdm import tqdm
 ###################################################################
 # CONSTANTS/FUNCTIONS
 np.random.seed(0)
-FIGSIZE = (10, 7)
-plt.rc('text', usetex=True)
-plt.rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
-seaborn.set_style('ticks')
+# plt.rc('text', usetex=True)
+# plt.rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+seaborn.set_style('white')
 DOF = 2
 l1 = 3
 l2 = 3
 ALPHA = 10
 ALPHA_I = 1
 ALPHA_O = 1
-TRUE_MEAN = np.array([0, 0])
+TRUE_MEAN = np.array([2, -1])
 TRUE_WEIGHTS = np.array([1, 1])
 NUM_PARTICLES = 500
 two_pi = 2 * np.pi
@@ -113,11 +112,12 @@ def create_sample_from_xy(obj):
     chosen = feas[chosen_idx]
     return (chosen, feas)
 def plot_objects(data):
-    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=FIGSIZE, subplot_kw={'aspect': 'equal'})
+    fig, axes = plt.subplots(nrows=2, ncols=4, subplot_kw={'aspect': 'equal'})
     fig.suptitle("'objects' in xy space")
     axes = np.ndarray.flatten(np.array(axes))
     for (i, feasible) in enumerate(data):
         ax = axes[i]
+        # ax.set_facecolor('gray')
         ax.set_yticklabels([])
         ax.set_xticklabels([])
         ax.set_xlim(-6, 6)
@@ -125,7 +125,7 @@ def plot_objects(data):
         ax.scatter(feasible[:,0], feasible[:,1])
     plt.pause(0.2)
 def plot_feas(data):
-    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=FIGSIZE, subplot_kw={'aspect': 'equal'})
+    fig, axes = plt.subplots(nrows=2, ncols=4, subplot_kw={'aspect': 'equal'})
     fig.suptitle("feasible sets in theta space, l1: 3, l2: 3")
     axes = np.ndarray.flatten(np.array(axes))
     for (i, (theta, feasible)) in enumerate(data):
@@ -178,7 +178,7 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False
     print np.amin(likelihoods)
     print "max: " + str(np.amax(likelihoods))
     f = np.reshape(likelihoods.T, xx.shape)
-    ax.imshow(np.flip(f, 1).T, cmap='inferno', interpolation='nearest', extent=(-5, 5, -5, 5), vmin=vmin, vmax=vmax)
+    ax.imshow(np.flip(f, 1).T, cmap='gist_gray', interpolation='nearest', extent=(-5, 5, -5, 5), vmin=vmin, vmax=vmax)
     ax.scatter(feasible[:,0], feasible[:,1], c='C0')
     ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
     if with_belief:
@@ -207,16 +207,16 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False
 #                  create_box([0, 3], [2.5, 1], 0.1), create_box([0, 3], [2.5, 1], 0.5),\
 #                  create_box([0, 3], [4.5, 2])]
 # data = [create_sample(feas) for feas in data_original]
-data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
-        create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
-        create_ellipse(0, -2, 1, 3), \
-        create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2), \
-        create_box([-3, 3], [-1, 1])]
-# np.random.seed(0)
-# data_original = [create_ellipse(0, 0, 1, 3), create_ellipse(0, 0, 3, 1), \
-#                  create_box([-6, 0], [6, 0]), create_box([0, 6], [0, -6]), \
-#                  create_box([-3, 3], [3, -3]), create_box([-1, 5], [1, -5]), \
-#                  create_box([-5, 1], [5, -1]), create_ellipse(0, 0, 2, 2)]
+# data_original = [create_ellipse(1, 1, 1, 1), create_ellipse(0, 0, 1, 2), \
+#         create_box([1, 3], [5, 0]), create_box([0, 1], [4, 1]), \
+#         create_ellipse(0, -2, 1, 3), \
+#         create_box([-6, 0], [6, 0]), create_ellipse(-3, -3, 2, 2)]
+np.random.seed(0)
+centers = np.random.randint(-5, 5, size=(8, 2))
+angles = np.random.randint(-90, 90, size=8)
+data_original = []
+for i, center in enumerate(centers):
+    data_original.append(create_ellipse_rot(center[0], center[1], 1, 3, angles[i]))
 data = [create_sample_from_xy(shape) for shape in data_original]
 plot_objects(data_original)
 plot_feas(data)
@@ -238,7 +238,7 @@ weights = np.array(weights) / np.sum(weights)
 dist = SetWeightsParticleDistribution(particles, weights, cost, w=TRUE_WEIGHTS, \
 ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=0.08)
 
-fig, axes = plt.subplots(nrows=2, ncols=4, figsize=FIGSIZE)
+fig, axes = plt.subplots(nrows=2, ncols=4)
 axes = np.ndarray.flatten(np.array(axes))
 # ax = axes[0]
 # data_means = np.array(dist.particles).T
@@ -257,13 +257,11 @@ plt.pause(0.1)
 
 def info_gain(dist, x):
     return (x, dist.info_gain(x[1], num_boxes=20), dist.expected_cost(x[1]))
-def min_cost(dist, x):
-    return (x, 0, dist.expected_cost2(x[1], dist.distribution_mode()))
 if __name__ == '__main__':
     pool = mp.Pool(8)
-    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=FIGSIZE, subplot_kw={'aspect': 'equal'})
+    fig, axes = plt.subplots(nrows=2, ncols=3, subplot_kw={'aspect': 'equal'})
     axes = np.ndarray.flatten(np.array(axes))
-    bar_fig, bar_axes = plt.subplots(nrows=2, ncols=3, figsize=FIGSIZE)
+    bar_fig, bar_axes = plt.subplots(nrows=2, ncols=3)
     bar_axes = np.ndarray.flatten(np.array(bar_axes))
     # fig.suptitle('Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
     #              ' alpha_o: ' + str(ALPHA_O) + ' l1: ' + str(l1) + ' l2: ' +str(l2) +\
@@ -275,30 +273,29 @@ if __name__ == '__main__':
     # 1/0
     for i in range(1, len(axes)):
         func = partial(info_gain, dist)
-        func = partial(min_cost, dist)
         pooled = pool.map(func, data)
         print
-        # expected_infos = [sample[1] for sample in pooled]
+        expected_infos = [sample[1] for sample in pooled]
         expected_costs = [sample[2] for sample in pooled]
-        # max_idx = np.argmax(expected_infos)
-        max_idx = np.argmin(expected_costs)
+        max_idx = np.argmax(expected_infos)
+        # max_idx = np.argmin(expected_costs)
         (theta, feasible) = pooled[max_idx][0]
         actual_infos = []
         ent_before = dist.entropy(num_boxes=20)
-        # for j in range(len(data)):
-        #     t, f = data[j]
-        #     d = SetWeightsParticleDistribution(dist.particles, dist.weights, dist.cost, dist.w, dist.ALPHA_I, dist.ALPHA_O)
-        #     d.weights = d.reweight(t, f)
-        #     actual_infos.append(ent_before - d.entropy(num_boxes=20))
+        for j in range(len(data)):
+            t, f = data[j]
+            d = SetWeightsParticleDistribution(dist.particles, dist.weights, dist.cost, dist.w, dist.ALPHA_I, dist.ALPHA_O)
+            d.weights = d.reweight(t, f)
+            actual_infos.append(ent_before - d.entropy(num_boxes=20))
         dist.weights = dist.reweight(theta, feasible)
         dist.resample()
 
         ax = axes[i]
         plot_belief_update(ax, np.array(dist.particles), theta, feasible, TRUE_MEAN, i)
 
-        # bar_ax = bar_axes[i]
-        # bar_ax.bar(np.arange(len(data)), expected_infos, 0.35, color='C0', label='expected info gain')
-        # bar_ax.bar(np.arange(len(data)) + 0.35, actual_infos, 0.35, color='C1', label='actual info gain')
-        # bar_ax.bar(max_idx, expected_infos[max_idx], 0.35, color='C2', label='chosen set expected info')
+        bar_ax = bar_axes[i]
+        bar_ax.bar(np.arange(len(data)), expected_infos, 0.35, color='C0', label='expected info gain')
+        bar_ax.bar(np.arange(len(data)) + 0.35, actual_infos, 0.35, color='C1', label='actual info gain')
+        bar_ax.bar(max_idx, expected_infos[max_idx], 0.35, color='C2', label='chosen set expected info')
         plt.pause(0.1)
     plt.show()

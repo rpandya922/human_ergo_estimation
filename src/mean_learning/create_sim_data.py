@@ -68,12 +68,13 @@ def preprocess_feasible(data, poses):
     print
     return new_data_full, new_data, new_poses
 ##############################################################
-data_full, data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
+data_full, data, poses = np.array(preprocess_feasible(np.load('../data/handlebars_data.npy'), \
+np.load('../data/handlebars_test_cases.npz')['pose_samples']))
 print "preprocessed"
 training_data = []
 for i in range(len(data)):
     feasible = data[i]
     probs = get_distribution(feasible, cost, ALPHA)
     training_data.append(create_sample(feasible, probs))
-np.savez("../data/sim_rod_weight_learning", data_full=data_full, \
+np.savez("../data/handlebars_sim_data", data_full=data_full, \
 data=training_data, poses=poses)

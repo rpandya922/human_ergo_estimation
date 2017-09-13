@@ -90,7 +90,8 @@ def load_environment(human_file, robot_file, object_file,
     #Add the object
     target_desc = load_txt('../data/' + object_file)
     with env:
-        target = env.ReadKinBodyXMLFile('../data/' + target_desc['object_file'])
+        target = env.ReadKinBodyXMLFile(target_desc['object_file'])
+        print target_desc['object_file']
         env.AddKinBody(target)
         target.SetTransform(object_start_pose)
 

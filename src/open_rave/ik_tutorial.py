@@ -20,6 +20,7 @@ def main(env,options):
         for geom in link.GetGeometries():
             geom.SetTransparency(options.transparency)
 
+    robot.SetActiveManipulator('rightarm')
     ikmodel = databases.inversekinematics.InverseKinematicsModel(robot, iktype=IkParameterization.Type.Transform6D)
     if not ikmodel.load():
         ikmodel.autogenerate()
@@ -27,8 +28,9 @@ def main(env,options):
         # move the robot in a random collision-free position and call the IK
         while True:
             lower,upper = [v[ikmodel.manip.GetArmIndices()] for v in ikmodel.robot.GetDOFLimits()]
-            robot.SetDOFValues(random.rand()*(upper-lower)+lower,ikmodel.manip.GetArmIndices()) # set random values
+            robot.SetDOFValues(lower + 1,ikmodel.manip.GetArmIndices()) # set random values
             if not robot.CheckSelfCollision():
+                print ikmodel.manip.GetTransform()
                 solutions = ikmodel.manip.FindIKSolutions(ikmodel.manip.GetTransform(),IkFilterOptions.CheckEnvCollisions)
                 if solutions is not None and len(solutions) > 0: # if found, then break
                     break
@@ -44,14 +46,14 @@ def main(env,options):
             newrobot.SetTransform(robot.GetTransform())
             newrobot.SetDOFValues(solutions[ind],ikmodel.manip.GetArmIndices())
     env.UpdatePublishedBodies()
+    while True:
+        continue
     print('waiting...')
     time.sleep(20)
     # remove the robots
     for newrobot in newrobots:
         env.Remove(newrobot)
     del newrobots
-    while True:
-        continue
 
 from optparse import OptionParser
 from openravepy.misc import OpenRAVEGlobalArguments

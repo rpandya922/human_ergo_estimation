@@ -36,8 +36,8 @@ TRUE_WEIGHTS2 = np.array([2, 1])
 TRUE_WEIGHTS2 = TRUE_WEIGHTS2 / np.linalg.norm(TRUE_WEIGHTS2)
 NUM_PARTICLES = 500
 two_pi = 2 * np.pi
-DEFAULT_DATA_FILE = 'sim_rod_weight_learning.npz'
-DEFAULT_PROBLEM_DEF_FILE = 'rod_full_problem_def.npz'
+DEFAULT_DATA_FILE = 'handlebars_sim_data.npz'
+DEFAULT_PROBLEM_DEF_FILE = 'handlebars_problem_def.npz'
 def plot_feas(ax, ax2, theta, feasible):
     # ax.set_xlim(-3, 1.75)
     # ax.set_ylim(-3, 1.5)
@@ -65,23 +65,23 @@ datafile = utils.prefilled_input('Simulation data file: ', DEFAULT_DATA_FILE)
 problem_def_file = utils.prefilled_input('Problem definition file: ', DEFAULT_PROBLEM_DEF_FILE)
 
 f = np.load('../data/' + datafile)
-idxs = list(range(50))
-data_full = f['data_full'][idxs]
-all_data = f['data'][idxs]
-test_set = f['data'][np.random.choice(len(f['data']), size=10)]
-poses = f['poses'][idxs]
+# idxs = list(range(50))
+data_full = f['data_full']#[idxs]
+all_data = f['data']#[idxs]
+test_set = f['data']#[np.random.choice(len(f['data']), size=10)]
+poses = f['poses']#[idxs]
 env, human, robot, target, target_desc = utils.load_environment_file('../data/' + problem_def_file)
 env.SetViewer('qtcoin')
 data = all_data
-fig = plt.figure()
-ax = fig.add_subplot(111)
-fig2 = plt.figure()
-ax2 = fig2.add_subplot(111)
-
-lh_fig = plt.figure()
-lh_ax = lh_fig.add_subplot(111)
-lh_fig2 = plt.figure()
-lh_ax2 = lh_fig2.add_subplot(111)
+# fig = plt.figure()
+# ax = fig.add_subplot(111)
+# fig2 = plt.figure()
+# ax2 = fig2.add_subplot(111)
+#
+# lh_fig = plt.figure()
+# lh_ax = lh_fig.add_subplot(111)
+# lh_fig2 = plt.figure()
+# lh_ax2 = lh_fig2.add_subplot(111)
 
 newrobots = []
 for ind in range(15):
@@ -95,17 +95,17 @@ for link in robot.GetLinks():
     for geom in link.GetGeometries():
         geom.SetTransparency(0.8)
 for (i, (theta, feasible)) in enumerate(data):
-    ax.cla()
-    ax2.cla()
-    lh_ax.cla()
-    lh_ax2.cla()
-    ax.set_title("Feasible sets to choose from (dim 1&2)")
-    ax2.set_title("Feasible sets to choose from (dim 3&4)")
-    lh_ax.set_title("Likelihood (dim 1&2)")
-    lh_ax2.set_title("Likelihood (dim 3&4)")
-    plot_feas(ax, ax2, theta, feasible)
-    utils.plot_likelihood_heatmap_norm_weights(lh_ax, theta[:2], feasible[:,:2], TRUE_WEIGHTS1, vmin=-8.1, vmax=-3)
-    utils.plot_likelihood_heatmap_norm_weights(lh_ax2, theta[2:], feasible[:,2:], TRUE_WEIGHTS2, vmin=-8.1, vmax=-3)
+    # ax.cla()
+    # ax2.cla()
+    # lh_ax.cla()
+    # lh_ax2.cla()
+    # ax.set_title("Feasible sets to choose from (dim 1&2)")
+    # ax2.set_title("Feasible sets to choose from (dim 3&4)")
+    # lh_ax.set_title("Likelihood (dim 1&2)")
+    # lh_ax2.set_title("Likelihood (dim 3&4)")
+    # plot_feas(ax, ax2, theta, feasible)
+    # utils.plot_likelihood_heatmap_norm_weights(lh_ax, theta[:2], feasible[:,:2], TRUE_WEIGHTS1, vmin=-8.1, vmax=-3)
+    # utils.plot_likelihood_heatmap_norm_weights(lh_ax2, theta[2:], feasible[:,2:], TRUE_WEIGHTS2, vmin=-8.1, vmax=-3)
     target.SetTransform(poses[i])
     feas_full = data_full[i]
     with env:

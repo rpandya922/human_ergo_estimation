@@ -20,8 +20,8 @@ from tqdm import tqdm
 from scipy.stats import multivariate_normal as mvn
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--sets', nargs='+', type=int, default=list(range(10)))
-parser.add_argument('--means', nargs='+', type=int, default=list(range(5)))
+parser.add_argument('--sets', nargs='+', type=int, default=list(range(20)))
+parser.add_argument('--means', nargs='+', type=int, default=list(range(15)))
 args = parser.parse_args()
 ################################################################################
 # CONSTANTS/FUNCTIONS
@@ -31,14 +31,16 @@ ALPHA_I = 1
 ALPHA_O = 1
 RESAMPLING_VARIANCE = 0.1
 FEASIBLE_SIZE = 1000
-mins = np.array([-3.18, -2.33, -1.6, 2.47, -1.34, -0.82, -1.57])
-maxes = np.array([1.06, 8.37e-01, 5.00e-01, 1.77e-03, 1.97, 4.71e-01, 1.41])
+# mins = np.array([-1.49, -0.92, -1.6, -2.36, 0.01, -0.80, -1.43])
+# maxes = np.array([ 0.34, 0.32, 0.5, -1.26, 1.97, 0.46, 0.30])
+mins = np.array([-2.25, -2.31, -1.6, -2.46, -1.34, -0.81, -1.55])
+maxes = np.array([0.69, 0.30, 0.5, -0.41, 1.96, 0.46, 1.41])
 np.random.seed(0)
 ranges = maxes - mins
-TRUE_MEANS = np.random.uniform(0, 1, size=(4, DOF))
+TRUE_MEANS = np.random.uniform(0, 1, size=(15, DOF))
 TRUE_MEANS *= ranges
 TRUE_MEANS += mins
-TRUE_MEANS = np.vstack(([0,0,0,0,0,0,0], TRUE_MEANS))
+TRUE_MEANS = np.vstack(([0,0,0,1.57,0,0,0], TRUE_MEANS))
 TRUE_WEIGHTS = np.array([1, 1, 1, 1, 1, 1, 1])
 # TRUE_MEANS = np.array([[0, 0, 0, 0, 0, 0, 0],
 #                        [-2.60, -0.82, 0.42, 0.46, 1.43, -2.91, -0.12],
@@ -46,11 +48,10 @@ TRUE_WEIGHTS = np.array([1, 1, 1, 1, 1, 1, 1])
 #                        [-1.76, -2.36, -1.11, -2.36, -2.78, -0.88, 0.94],
 #                        [1.67, 0.63, -2.34, -0.73, 1.27, -0.38, 1.67],
 #                        [-0.48, -0.45, 1.78, 2.97, 1.49, 2.65, -2.23]])
-TEST_SET_SIZE = 300
 NUM_PARTICLES = 1000
 NUM_TRAIN_ITERATIONS = 10
 training_data_size = 500
-DISTRIBUTION_DATA_FOLDER = '../data/mean_7dof_testing_h_new'
+DISTRIBUTION_DATA_FOLDER = '../data/mean_bike_sim_good_trials'
 def cost(theta, theta_star, w):
     d_theta = np.square(theta - theta_star)
     return d_theta.dot(w)
@@ -90,14 +91,7 @@ def preprocess_feasible(data, poses, get_feasible=True):
             pass
         if len(feasible) <= 2:
             continue
-        try:
-            weights = 1 / kde(feasible.T).evaluate(feasible.T)
-        except:
-            continue
-        weights /= np.sum(weights)
-        uniform_feasible_full = feasible[np.random.choice(len(feasible), p=weights,\
-        size=min(1000, len(feasible)))]
-        new_data_full.append(uniform_feasible_full)
+        new_data_full.append(feasible)
         new_poses.append(poses[i])
     return new_data_full, new_poses
 def prob_of_truth(dist, ground_truth):
@@ -212,9 +206,9 @@ def get_test_sets():
     for mean_idx in args.means:
         print "Preprocessing test set %d..." % mean_idx
         mean = TRUE_MEANS[mean_idx]
-        data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
-        # data, poses = np.array(preprocess_feasible(np.load('../data/rod_and_mug_data.npz')['data'], \
-        # np.load('../data/rod_and_mug_data.npz')['poses'], False))
+        # data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
+        data, poses = np.array(preprocess_feasible(np.load('../data/handlebars_and_lock_data.npz')['data'], \
+        np.load('../data/handlebars_and_lock_data.npz')['poses'], False))
         training_data = []
         for i in range(len(data)):
             feasible = data[i]
@@ -223,20 +217,29 @@ def get_test_sets():
         datasets.append(training_data)
     return datasets
 #########################################################
-datasets = []
+handles_datasets = []
+lock_datasets = []
 for mean_idx in args.means:
     print "Preprocessing mean %d..." % mean_idx
     mean = TRUE_MEANS[mean_idx]
-    data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
-    # data, poses = np.array(preprocess_feasible(np.load('../data/rod_and_mug_data.npz')['data'], \
-    # np.load('../data/rod_and_mug_data.npz')['poses'], False))
-    training_data = []
-    for i in range(len(data)):
-        feasible = data[i]
-        probs = get_distribution(feasible, cost, mean, ALPHA)
-        training_data.append(create_sample(feasible, probs))
-    datasets.append(training_data)
-test_sets = get_test_sets()
+    # data, poses = np.array(preprocess_feasible(np.load('../data/sim_data_rod.npy'), np.load('../data/rod_full_cases.npz')['pose_samples']))
+    # data, poses = np.array(preprocess_feasible(np.load('../data/handlebars_and_lock_data.npz')['data'], \
+    # np.load('../data/handlebars_and_lock_data.npz')['poses'], False))
+    handles_data, handles_poses = np.array(preprocess_feasible(np.load('../data/handlebars_sim_data.npz')['data'], \
+    np.load('../data/handlebars_sim_data.npz')['poses'], False))
+    lock_data, lock_poses = np.array(preprocess_feasible(np.load('../data/bike_lock_sim_data.npz')['data'], \
+    np.load('../data/bike_lock_sim_data.npz')['poses'], False))
+    handles_training_data = []
+    lock_training_data = []
+    for i in range(len(handles_data)):
+        handles_feasible = handles_data[i]
+        lock_feasible = lock_data[i]
+        handles_probs = get_distribution(handles_feasible, cost, mean, ALPHA)
+        lock_probs = get_distribution(lock_feasible, cost, mean, ALPHA)
+        handles_training_data.append(create_sample(handles_feasible, handles_probs))
+        lock_training_data.append(create_sample(lock_feasible, lock_probs))
+    handles_datasets.append(handles_training_data)
+    lock_datasets.append(lock_training_data)
 # objects = np.load('../data/rod_and_mug_data.npz')['objects']
 def info_gain(dist, x):
     return (x, dist.info_gain(x[1], num_boxes=20))
@@ -247,14 +250,28 @@ if __name__ == '__main__':
 
     for mean_idx in args.means:
         ground_truth_mean = TRUE_MEANS[mean_idx]
-        all_data = datasets[mean_idx]
-        test_set = test_sets[mean_idx][:TEST_SET_SIZE]
+        # all_data = datasets[mean_idx]
+        all_handles_data = handles_datasets[mean_idx]
+        all_lock_data = lock_datasets[mean_idx]
         for set_idx in args.sets:
             np.random.seed(set_idx + (1000 * mean_idx))
-            data = all_data[TEST_SET_SIZE:]
-            idxs = np.random.choice(len(data), size=8)
-            data = np.array(data)[idxs]
-            chosen_poses = poses[TEST_SET_SIZE:][idxs]
+            handles_idxs = np.random.choice(len(all_handles_data), size=4)
+            lock_idxs = np.random.choice(len(all_lock_data), size=4)
+            handles_idxs[3] = 35
+            print handles_idxs
+            print lock_idxs
+            handles_data = np.array(all_handles_data)[handles_idxs]
+            lock_data = np.array(all_lock_data)[lock_idxs]
+            data = [h for h in handles_data]
+            for l in lock_data:
+                data.append(l)
+            data = np.array(data)
+            test_set = np.copy(data)
+            handles_chosen_poses = handles_poses[handles_idxs]
+            lock_chosen_poses = lock_poses[lock_idxs]
+            chosen_poses = [h for h in handles_chosen_poses]
+            for l in lock_chosen_poses:
+                chosen_poses.append(l)
             # chosen_objects = objects[TEST_SET_SIZE:][idxs]
 
             particles = []
@@ -271,7 +288,6 @@ if __name__ == '__main__':
             particles += mins
             weights = np.ones(NUM_PARTICLES) / NUM_PARTICLES
             weights = np.array(weights) / np.sum(weights)
-
             dist_active = SetWeightsParticleDistribution(np.copy(particles), np.copy(weights), cost, w=TRUE_WEIGHTS,\
             ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=RESAMPLING_VARIANCE)
             dist_passive = SetWeightsParticleDistribution(np.copy(particles), np.copy(weights), cost, w=TRUE_WEIGHTS,\
@@ -295,7 +311,7 @@ if __name__ == '__main__':
                             'distances_random': dists_random, 'll_active': ll_active, \
                             'll_passive': ll_passive, 'll_random': ll_random, \
                             'initial_prob': initial_prob, 'initial_dist': initial_dist, \
-                            'initial_ll': initial_ll, 'test_set': test_set, \
+                            'initial_ll': initial_ll,'test_set': test_set, \
                             'expected_infos': expected_infos, 'actual_infos': actual_infos, \
                             'expected_costs': expected_costs, 'training_poses': chosen_poses[:], \
                             'particles_active': particles_active, 'particles_passive': particles_passive, \
