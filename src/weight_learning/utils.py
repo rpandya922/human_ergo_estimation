@@ -64,7 +64,7 @@ def load_environment(human_file, robot_file, object_file,
     manip = human.SetActiveManipulator('rightarm')
     human.SetTransform(human_base_pose)
 
-    human.GetLink('Hips').SetVisible(False)
+    human.GetLink('Hips').SetVisible(True)
     hand_joints = []
     hand_joints.append(human.GetJointIndex('JLFing11'))
     hand_joints.append(human.GetJointIndex('JLFing21'))
@@ -279,8 +279,8 @@ def sample_spherical(npoints, ndim=2):
     vec = np.random.randn(ndim, npoints)
     vec /= np.linalg.norm(vec, axis=0)
     return vec
-def plot_likelihood_heatmap_norm_weights(ax, theta, feasible, ground_truth, vmin=-5, vmax=0):
-    points = sample_spherical(700).T
+def plot_likelihood_heatmap_norm_weights(ax, theta, feasible, ground_truth, vmin=None, vmax=None, color='C3'):
+    points = sample_spherical(1400).T
     new_pts = []
     for p in points:
         if p[0] >= 0 and p[1] >= 0:
@@ -295,14 +295,14 @@ def plot_likelihood_heatmap_norm_weights(ax, theta, feasible, ground_truth, vmin
             alpha = ALPHA_O
         else:
             alpha = ALPHA_I
-        return pe.prob_theta_given_lam_stable_set_weight_num(theta, TRUE_MEAN, point, cost, alpha)\
-        -pe.prob_theta_given_lam_stable_set_weight_denom(feasible, TRUE_MEAN, point, cost, alpha)
+        return np.exp(pe.prob_theta_given_lam_stable_set_weight_num(theta, TRUE_MEAN, point, cost, alpha)\
+        -pe.prob_theta_given_lam_stable_set_weight_denom(feasible, TRUE_MEAN, point, cost, alpha))
     likelihoods = np.array([likelihood(idx, p) for idx, p in enumerate(points)])
     print min(likelihoods)
     print 'max: ' + str(max(likelihoods))
     colors = np.random.random(100)
-    ax.scatter(points[:,0], points[:,1], c=likelihoods, vmin=vmin, vmax=vmax, cmap='inferno')
-    ax.scatter(ground_truth[0], ground_truth[1], c='C3', s=200, zorder=2)
+    ax.scatter(points[:,0], points[:,1], c=likelihoods, s=200, vmin=0.38 * np.amax(likelihoods), vmax=vmax, cmap='gist_gray_r')
+    ax.scatter(ground_truth[0], ground_truth[1], c=color, s=200, zorder=2)
 def prob_of_truth(dist, ground_truth):
     DOF = len(dist.particles[0])
     cov = np.diag(np.ones(DOF)) * 0.0625

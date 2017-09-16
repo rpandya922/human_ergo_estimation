@@ -18,7 +18,11 @@ from tqdm import tqdm
 np.random.seed(0)
 # plt.rc('text', usetex=True)
 # plt.rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
-seaborn.set_style('white')
+seaborn.set_style('ticks')
+FEASIBLE_COLOR = '#67a9cf'
+GROUND_TRUTH_COLOR = '#1b9e77'
+PICKED_COLOR = '#ceb301'
+FIGSIZE = (10, 7)
 DOF = 2
 l1 = 3
 l2 = 3
@@ -112,7 +116,7 @@ def create_sample_from_xy(obj):
     chosen = feas[chosen_idx]
     return (chosen, feas)
 def plot_objects(data):
-    fig, axes = plt.subplots(nrows=2, ncols=4, subplot_kw={'aspect': 'equal'})
+    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=FIGSIZE, subplot_kw={'aspect': 'equal'})
     fig.suptitle("'objects' in xy space")
     axes = np.ndarray.flatten(np.array(axes))
     for (i, feasible) in enumerate(data):
@@ -122,17 +126,17 @@ def plot_objects(data):
         ax.set_xticklabels([])
         ax.set_xlim(-6, 6)
         ax.set_ylim(-6, 6)
-        ax.scatter(feasible[:,0], feasible[:,1])
+        ax.scatter(feasible[:,0], feasible[:,1], c=FEASIBLE_COLOR)
     plt.pause(0.2)
 def plot_feas(data):
-    fig, axes = plt.subplots(nrows=2, ncols=4, subplot_kw={'aspect': 'equal'})
+    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=FIGSIZE, subplot_kw={'aspect': 'equal'})
     fig.suptitle("feasible sets in theta space, l1: 3, l2: 3")
     axes = np.ndarray.flatten(np.array(axes))
     for (i, (theta, feasible)) in enumerate(data):
         ax = axes[i]
         ax.set_xlim(-3.6, 3.6)
         ax.set_ylim(-3.6, 3.6)
-        ax.scatter(feasible[:,0], feasible[:,1])
+        ax.scatter(feasible[:,0], feasible[:,1], c=FEASIBLE_COLOR)
     plt.pause(0.2)
 def plot_belief(ax, particles, ground_truth, i=1):
     ax.set_xlim(-5, 5)
@@ -142,9 +146,9 @@ def plot_belief(ax, particles, ground_truth, i=1):
     xx, yy = np.mgrid[-6:6:100j, -6:6:100j]
     positions = np.vstack([xx.ravel(), yy.ravel()])
     f = np.reshape(kernel(positions).T, xx.shape)
-    cfset = ax.contourf(xx, yy, f, cmap='Greens')
+    cfset = ax.contourf(xx, yy, f, cmap='gist_gray_r')
     cset = ax.contour(xx, yy, f, colors='k')
-    ax.scatter(ground_truth[0], ground_truth[1], c='C3', s=200, zorder=2, label=r"$\theta^{*}$")
+    ax.scatter(ground_truth[0], ground_truth[1], c=GROUND_TRUTH_COLOR, s=200, zorder=2, label=r"$\theta^{*}$")
     if i != 0:
         ax.set_yticklabels([])
         ax.set_xticklabels([])
@@ -153,8 +157,8 @@ def plot_belief(ax, particles, ground_truth, i=1):
         ax.set_ylabel(r'$\theta_2$')
 def plot_belief_update(ax, particles, theta, feasible, ground_truth, i=1):
     plot_belief(ax, particles, ground_truth, i)
-    ax.scatter(feasible[:,0], feasible[:,1], c='C0', label=r'$\Theta_{feas}$')
-    ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2, label=r'$\theta_H$')
+    ax.scatter(feasible[:,0], feasible[:,1], c=FEASIBLE_COLOR, label=r'$\Theta_{feas}$')
+    ax.scatter(theta[0], theta[1], c=PICKED_COLOR, s=200, zorder=2, label=r'$\theta_H$')
     if i == 1:
         lgnd = ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left")
         lgnd.legendHandles[0]._sizes = [30]
@@ -172,15 +176,15 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False
             alpha = ALPHA_O
         else:
             alpha = ALPHA_I
-        return pe.prob_theta_given_lam_stable_set_weight_num(theta, point, TRUE_WEIGHTS, cost, alpha)\
-        -pe.prob_theta_given_lam_stable_set_weight_denom(feasible, point, TRUE_WEIGHTS, cost, alpha)
+        return np.exp(pe.prob_theta_given_lam_stable_set_weight_num(theta, point, TRUE_WEIGHTS, cost, alpha)\
+        -pe.prob_theta_given_lam_stable_set_weight_denom(feasible, point, TRUE_WEIGHTS, cost, alpha))
     likelihoods = np.array([likelihood(idx, p) for idx, p in enumerate(positions.T)])
     print np.amin(likelihoods)
     print "max: " + str(np.amax(likelihoods))
     f = np.reshape(likelihoods.T, xx.shape)
-    ax.imshow(np.flip(f, 1).T, cmap='gist_gray', interpolation='nearest', extent=(-5, 5, -5, 5), vmin=vmin, vmax=vmax)
-    ax.scatter(feasible[:,0], feasible[:,1], c='C0')
-    ax.scatter(theta[0], theta[1], c='C2', s=200, zorder=2)
+    ax.imshow(np.flip(f, 1).T, cmap='gist_gray_r', interpolation='nearest', extent=(-5, 5, -5, 5), vmin=vmin, vmax=vmax)
+    ax.scatter(feasible[:,0], feasible[:,1], c=FEASIBLE_COLOR)
+    ax.scatter(theta[0], theta[1], c=PICKED_COLOR, s=200, zorder=2)
     if with_belief:
         data_means = np.array(dist.particles).T
         kernel = kde(data_means)
@@ -188,7 +192,7 @@ def plot_likelihood_heatmap(ax, theta, feasible, ground_truth, with_belief=False
         positions = np.vstack([xx.ravel(), yy.ravel()])
         f = np.reshape(kernel(positions).T, xx.shape)
         cset = ax.contour(xx, yy, f, colors='k')
-    ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c='C3', s=200, zorder=2)
+    ax.scatter(TRUE_MEAN[0], TRUE_MEAN[1], c=GROUND_TRUTH_COLOR, s=200, zorder=2)
 ###################################################################
 # data_original = [create_box([-1, 3], [-1, -3], 0.1), create_box([-3, -1], [3, -1], 0.1)]
 # data_original = [create_box([-3, 2.5], [0, 1.5]), create_box([-3, 1], [0, 0]),\
@@ -238,7 +242,7 @@ weights = np.array(weights) / np.sum(weights)
 dist = SetWeightsParticleDistribution(particles, weights, cost, w=TRUE_WEIGHTS, \
 ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=0.08)
 
-fig, axes = plt.subplots(nrows=2, ncols=4)
+fig, axes = plt.subplots(nrows=2, ncols=4, figsize=FIGSIZE)
 axes = np.ndarray.flatten(np.array(axes))
 # ax = axes[0]
 # data_means = np.array(dist.particles).T
@@ -251,17 +255,18 @@ for (i, (theta, feasible)) in enumerate(data):
     ax = axes[i]
     ax.set_yticklabels([])
     ax.set_xticklabels([])
-    plot_likelihood_heatmap(ax, theta, feasible, TRUE_MEAN)
+    plot_likelihood_heatmap(ax, theta, feasible, TRUE_MEAN, vmin=0, vmax=None)
     plt.pause(0.1)
 plt.pause(0.1)
-
+plt.show()
+1/0
 def info_gain(dist, x):
     return (x, dist.info_gain(x[1], num_boxes=20), dist.expected_cost(x[1]))
 if __name__ == '__main__':
     pool = mp.Pool(8)
-    fig, axes = plt.subplots(nrows=2, ncols=3, subplot_kw={'aspect': 'equal'})
+    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=FIGSIZE, subplot_kw={'aspect': 'equal'})
     axes = np.ndarray.flatten(np.array(axes))
-    bar_fig, bar_axes = plt.subplots(nrows=2, ncols=3)
+    bar_fig, bar_axes = plt.subplots(nrows=2, ncols=3, figsize=FIGSIZE)
     bar_axes = np.ndarray.flatten(np.array(bar_axes))
     # fig.suptitle('Particles: ' + str(NUM_PARTICLES) + ' alpha_i: ' + str(ALPHA_I) +\
     #              ' alpha_o: ' + str(ALPHA_O) + ' l1: ' + str(l1) + ' l2: ' +str(l2) +\

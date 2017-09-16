@@ -31,9 +31,10 @@ ACTIVE_COLOR = '#ffaa00'
 # PASSIVE_COLOR = '#24e2cc'
 PASSIVE_COLOR = '#46c6db'
 # RANDOM_COLOR = '#704300'
-RANDOM_COLOR = '#c68400'
-DATA_LOCATION = '../data/mean_bike_sim_good_trials'
-TRUE_WEIGHTS = np.ones(7)
+# RANDOM_COLOR = '#c68400'
+RANDOM_COLOR = '#929591'
+DATA_LOCATION = '../data/2dof_arm_diff_passive'
+TRUE_WEIGHTS = np.ones(2)
 def calc_error_bounds(data):
     n = np.array(data).shape[1]
     sample_mean = np.mean(data, axis=0)
@@ -44,7 +45,7 @@ def cost(theta, theta_star, w):
     return d_theta.dot(w)
 def prob_of_truth(dist, ground_truth):
     DOF = len(dist.particles[0])
-    cov = np.diag(np.ones(DOF)) * 1
+    cov = np.diag(np.ones(DOF)) * 0.25
     likelihoods = mvn.pdf(dist.particles, mean=ground_truth, cov=cov)
     return np.sum(likelihoods) / dist.NUM_PARTICLES
 def dist_to_truth(dist, ground_truth):
@@ -241,6 +242,24 @@ def entropy_metric(all_particles):
         cost, TRUE_WEIGHTS, 1, 1, 0.03)
         ents.append(dist.entropy(num_boxes=10))
     return ents
+def expected_cost_metric(expected_infos, expected_costs, training_set, ground_truth):
+    active_costs = []
+    passive_costs = []
+    active_regrets = []
+    passive_regrets = []
+    for i in range(len(expected_infos)):
+        active_idx = np.argmax(expected_infos[i])
+        passive_idx = np.argmin(expected_costs[i])
+        _, active_feasible = training_set[active_idx]
+        _, passive_feasible = training_set[passive_idx]
+        active_exp_cost = expected_cost(active_feasible, ground_truth)
+        passive_exp_cost = expected_cost(passive_feasible, ground_truth)
+        active_costs.append(active_exp_cost)
+        passive_costs.append(passive_exp_cost)
+        r = min(active_exp_cost, passive_exp_cost)
+        active_regrets.append(active_exp_cost - r)
+        passive_regrets.append(passive_exp_cost - r)
+    return active_costs, passive_costs, active_regrets, passive_regrets
 ################################################################################
 value_infos_ground_truth = []
 log_likelihoods_ground_truth = []
@@ -251,6 +270,8 @@ data_likelihoods_active = []
 value_infos_active = []
 entropys_active = []
 normalized_likelihoods_active = []
+expected_costs_active = []
+regrets_active = []
 
 ground_truth_probs_passive = []
 ground_truth_dists_passive = []
@@ -258,6 +279,8 @@ data_likelihoods_passive = []
 value_infos_passive = []
 entropys_passive = []
 normalized_likelihoods_passive = []
+expected_costs_passive = []
+regrets_passive = []
 
 ground_truth_probs_random = []
 ground_truth_dists_random = []
@@ -269,7 +292,7 @@ normalized_likelihoods_random = []
 # does well, set 14: passive does poorly
 test_set = []
 weights = []
-for set_idx in tqdm([9]):
+for set_idx in tqdm(range(10)):
     for param_idx in tqdm(range(5)):
         try:
             pkl_file = open('%s/set%s_param%s.pkl' % (DATA_LOCATION, set_idx, param_idx), 'rb')
@@ -278,7 +301,7 @@ for set_idx in tqdm([9]):
         data = pickle.load(pkl_file)
         test_set = data['test_set']
         mean = data['mean']
-        plot_poses(data['training_data'], data['training_poses'])
+        # plot_poses(data['training_data'], data['training_poses'])
         # plot_beliefs(data['particles_active'], mean, 'active')
         # plot_beliefs(data['particles_passive'], mean, 'passive')
         # plot_beliefs(data['particles_random'], mean, 'random')
@@ -324,6 +347,9 @@ for set_idx in tqdm([9]):
         entropy_passive = entropy_metric(data['particles_passive'])
         entropy_random = entropy_metric(data['particles_random'])
 
+        costs_active, costs_passive, r_active, r_passive = expected_cost_metric(data['expected_infos'],\
+        data['expected_costs'], data['training_data'], mean)
+
         # probs_active[0] = initial_prob
         # probs_passive[0] = initial_prob
         # probs_random[0] = initial_prob
@@ -354,6 +380,12 @@ for set_idx in tqdm([9]):
         entropys_passive.append(entropy_passive)
         entropys_random.append(entropy_random)
 
+        expected_costs_active.append(costs_active)
+        expected_costs_passive.append(costs_passive)
+
+        regrets_active.append(r_active)
+        regrets_passive.append(r_passive)
+
         ground_truth_likelihood = np.array([-neg_log_likelihood(test_set, mean)] * 10)
         log_likelihoods_ground_truth.append(ground_truth_likelihood)
 
@@ -379,7 +411,7 @@ error_values_gt = calc_error_bounds(value_infos_ground_truth)
 
 fig = plt.figure(figsize=(13, 12))
 ax = fig.add_subplot(321)
-ax.set_xlim(0, 9)
+ax.set_xlim(0, 5)
 ax.plot()
 ax.plot(values_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
 ax.plot(values_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
@@ -388,7 +420,7 @@ ax.plot(values_gt, c='k', linestyle='dashed', lw=3, label='ground truth')
 ax.fill_between(x, values_random - error_values_random, values_random + error_values_random, color=RANDOM_COLOR, alpha=0.3)
 ax.fill_between(x, values_passive - error_values_passive, values_passive + error_values_passive, color=PASSIVE_COLOR, alpha=0.3)
 ax.fill_between(x, values_active - error_values_active, values_active + error_values_active, color=ACTIVE_COLOR, alpha=0.3)
-ax.fill_between(x, values_gt - error_values_gt, values_gt + error_values_gt, color='k', alpha=0.3)
+# ax.fill_between(x, values_gt - error_values_gt, values_gt + error_values_gt, color='k', alpha=0.3)
 lgnd = ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left")
 lgnd.legendHandles[0]._sizes = [30]
 lgnd.legendHandles[1]._sizes = [30]
@@ -405,7 +437,7 @@ error_probs_passive = calc_error_bounds(ground_truth_probs_passive)
 error_probs_active = calc_error_bounds(ground_truth_probs_active)
 
 ax = fig.add_subplot(322)
-ax.set_xlim(0, 9)
+ax.set_xlim(0, 5)
 ax.plot(probs_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
 ax.plot(probs_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
 ax.plot(probs_active, c=ACTIVE_COLOR, lw=3, label='active learning')
@@ -424,7 +456,7 @@ error_dists_passive = calc_error_bounds(ground_truth_dists_passive)
 error_dists_active = calc_error_bounds(ground_truth_dists_active)
 
 ax = fig.add_subplot(323)
-ax.set_xlim(0, 9)
+ax.set_xlim(0, 5)
 ax.plot(dists_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
 ax.plot(dists_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
 ax.plot(dists_active, c=ACTIVE_COLOR, lw=3, label='active learning')
@@ -446,7 +478,7 @@ ll_active = np.mean(data_likelihoods_active, axis=0)
 ll_gt = np.mean(log_likelihoods_ground_truth, axis=0)
 
 ax = fig.add_subplot(324)
-ax.set_xlim(0, 9)
+ax.set_xlim(0, 5)
 ax.plot(ll_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
 ax.plot(ll_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
 ax.plot(ll_active, c=ACTIVE_COLOR, lw=3, label='active learning')
@@ -454,7 +486,7 @@ ax.plot(ll_gt, c='k', linestyle='dashed', lw=3, label='ground truth')
 ax.fill_between(x, ll_random - error_ll_random, ll_random + error_ll_random, color=RANDOM_COLOR, alpha=0.3)
 ax.fill_between(x, ll_passive - error_ll_passive, ll_passive + error_ll_passive, color=PASSIVE_COLOR, alpha=0.3)
 ax.fill_between(x, ll_active - error_ll_active, ll_active + error_ll_active, color=ACTIVE_COLOR, alpha=0.3)
-ax.fill_between(x, ll_gt - error_ll_gt, ll_gt + error_ll_gt, color='k',  alpha=0.3)
+# ax.fill_between(x, ll_gt - error_ll_gt, ll_gt + error_ll_gt, color='k',  alpha=0.3)
 ax.set_xlabel('iteration')
 ax.set_ylabel('log likelihood of test set')
 plt.pause(0.1)
@@ -467,7 +499,7 @@ error_ents_passive = calc_error_bounds(entropys_passive)
 error_ents_active = calc_error_bounds(entropys_active)
 
 ax = fig.add_subplot(325)
-ax.set_xlim(0, 9)
+ax.set_xlim(0, 5)
 ax.plot(ents_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
 ax.plot(ents_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
 ax.plot(ents_active, c=ACTIVE_COLOR, lw=3, label='active learning')
@@ -486,7 +518,7 @@ error_norm_ll_passive = calc_error_bounds(normalized_likelihoods_passive)
 error_norm_ll_active = calc_error_bounds(normalized_likelihoods_active)
 
 ax = fig.add_subplot(326)
-ax.set_xlim(0, 9)
+ax.set_xlim(0, 5)
 ax.plot(norm_ll_random, c=RANDOM_COLOR, lw=3, label='randomly selected')
 ax.plot(norm_ll_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
 ax.plot(norm_ll_active, c=ACTIVE_COLOR, lw=3, label='active learning')
@@ -496,5 +528,43 @@ ax.fill_between(x, norm_ll_passive - error_norm_ll_passive, norm_ll_passive + er
 ax.fill_between(x, norm_ll_active - error_norm_ll_active, norm_ll_active + error_norm_ll_active, color=ACTIVE_COLOR, alpha=0.3)
 ax.set_xlabel('iteration')
 ax.set_ylabel('normalized likelihood')
+plt.pause(0.1)
+
+# avg_costs_passive = np.mean(expected_costs_passive, axis=0)
+# avg_costs_active = np.mean(expected_costs_active, axis=0)
+# error_costs_passive = calc_error_bounds(expected_costs_passive)
+# error_costs_active = calc_error_bounds(expected_costs_active)
+#
+# fig = plt.figure(figsize=(6.5, 4))
+# ax = fig.add_subplot(111)
+# # ax = fig.add_subplot(427)
+# x = list(range(1, 10))
+# ax.set_xlim(0, 5)
+# ax.plot(x, avg_costs_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
+# ax.plot(x, avg_costs_active, c=ACTIVE_COLOR, lw=3, label='active learning')
+# ax.fill_between(x, avg_costs_passive - error_costs_passive, avg_costs_passive + error_costs_passive, color=PASSIVE_COLOR, alpha=0.3)
+# ax.fill_between(x, avg_costs_active - error_costs_active, avg_costs_active + error_costs_active, color=ACTIVE_COLOR, alpha=0.3)
+# ax.set_xlabel('iteration')
+# ax.set_ylabel('expected cost of query')
+# ax.set_ylim(0)
+# plt.pause(0.1)
+
+avg_regret_passive = np.mean(regrets_passive, axis=0)
+avg_regret_active = np.mean(regrets_active, axis=0)
+error_regrets_passive = calc_error_bounds(regrets_passive)
+error_regrets_active = calc_error_bounds(regrets_active)
+
+fig = plt.figure(figsize=(6.5, 4))
+ax = fig.add_subplot(111)
+# ax = fig.add_subplot(427)
+x = list(range(1, 10))
+ax.set_xlim(0, 5)
+ax.plot(x, avg_regret_passive, c=PASSIVE_COLOR, lw=3, label='passive learning')
+ax.plot(x, avg_regret_active, c=ACTIVE_COLOR, lw=3, label='active learning')
+ax.fill_between(x, avg_regret_passive - error_regrets_passive, avg_regret_passive + error_regrets_passive, color=PASSIVE_COLOR, alpha=0.3)
+ax.fill_between(x, avg_regret_active - error_regrets_active, avg_regret_active + error_regrets_active, color=ACTIVE_COLOR, alpha=0.3)
+ax.set_xlabel('iteration')
+ax.set_ylabel('regret')
+ax.set_ylim(0)
 plt.pause(0.1)
 plt.show()

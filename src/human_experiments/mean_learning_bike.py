@@ -22,8 +22,12 @@ from tqdm import tqdm
 from scipy.stats import multivariate_normal as mvn
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--subject', type=int, default=-1)
 parser.add_argument('--sets', nargs='+', type=int, default=list(range(20)))
 args = parser.parse_args()
+if args.subject == -1:
+    print "subject argument required"
+    sys.exit()
 ################################################################################
 # CONSTANTS/FUNCTIONS
 DOF = 7
@@ -35,10 +39,13 @@ FEASIBLE_SIZE = 1000
 TRUE_MEAN = np.array([0, 0, 0, 1.57, 0, 0, 0])
 TRUE_WEIGHTS = np.array([1, 1, 1, 1, 1, 1, 1])
 NUM_PARTICLES = 1000
-NUM_TRAIN_ITERATIONS = 10
+NUM_TRAIN_ITERATIONS = 6
 training_data_size = 500
-DISTRIBUTION_DATA_FOLDER = '../data/mean_bike_human_trials'
+DISTRIBUTION_DATA_FOLDER = '../data/user_study'
 TSR_SPLITS = [44, 133, 24, 14, 128, 110, 33, 266]
+CONFIG_NAMES = ['handles_vertical', 'handles_vertical_inverse_skew', 'handles_perp', \
+'handles_vertical_inverse', 'lock_vertical', 'lock_vertical_skew', 'lock_vertical_inverse',\
+'lock_horizontal']
 def load_object_desc(desc_string):
     result = eval(desc_string)
     for tsr_name in result['human_tsrs'].keys():
@@ -203,7 +210,7 @@ def train_active(dist, data, poses):
     all_particles = [np.copy(dist.particles)]
     all_expected_infos = []
     for i in range(1, NUM_TRAIN_ITERATIONS):
-        print "\rActive on iteration %d of 9. " % i,
+        print "\rActive on iteration %d of 5. " % i,
         sys.stdout.flush()
         func = partial(info_gain, dist)
         pooled = pool.map(func, data)
@@ -211,6 +218,7 @@ def train_active(dist, data, poses):
         max_idx = np.argmax(expected_infos)
         tsr_split = TSR_SPLITS[max_idx]
         feasible = pooled[max_idx][0]
+        print "Configuration %s selected, index %s" % (CONFIG_NAMES[max_idx], max_idx)
         plot_pose(feasible, poses[max_idx])
         theta = get_theta(dist, feasible, tsr_split)
         actual_infos = []
@@ -227,7 +235,7 @@ def train_min_cost(dist, data, poses):
     all_particles = [np.copy(dist.particles)]
     all_expected_costs = []
     for i in range(1, NUM_TRAIN_ITERATIONS):
-        print "\rPassive on iteration %d of 9. " % i,
+        print "\rPassive on iteration %d of 5. " % i,
         sys.stdout.flush()
         func = partial(min_cost, dist)
         pooled = pool.map(func, data)
@@ -235,6 +243,7 @@ def train_min_cost(dist, data, poses):
         max_idx = np.argmin(expected_costs)
         tsr_split = TSR_SPLITS[max_idx]
         feasible = pooled[max_idx][0]
+        print "Configuration %s selected, index %s" % (CONFIG_NAMES[max_idx], max_idx)
         plot_pose(feasible, poses[max_idx])
         theta = get_theta(dist, feasible, tsr_split)
 
@@ -248,11 +257,12 @@ def train_min_cost(dist, data, poses):
 def train_random(dist, data, poses):
     all_particles = [np.copy(dist.particles)]
     for i in range(1, NUM_TRAIN_ITERATIONS):
-        print "\rRandom on iteration %d of 9. " % i,
+        print "\rRandom on iteration %d of 5. " % i,
         sys.stdout.flush()
         idx = np.random.choice(len(data))
         tsr_split = TSR_SPLITS[idx]
         feasible = data[idx]
+        print "Configuration %s selected, index %s" % (CONFIG_NAMES[idx], idx)
         plot_pose(feasible, poses[idx])
         theta = get_theta(dist, feasible, tsr_split)
 
@@ -263,35 +273,37 @@ def train_random(dist, data, poses):
     print
     return all_particles
 def collect_training_set(data, poses):
-    test_set = []
+    training_set = []
     for i, feasible in enumerate(data):
+        print i
         pose = poses[i]
         tsr_split = TSR_SPLITS[i]
         plot_pose(feasible, pose)
         theta = get_theta_ground_truth(TRUE_MEAN, feasible, tsr_split)
-        test_set.append((np.copy(theta), np.copy(feasible)))
-    # np.savez("../data/mean_bike_human_trials/test_set9.npz", test_set=test_set)
-    return test_set
+        training_set.append((np.copy(theta), np.copy(feasible)))
+    np.savez("../data/user_study/subject%s_training_set.npz" % args.subject, training_set=training_set)
 def collect_test_set(handles_data, handles_poses, lock_data, lock_poses):
     handles_tsr_splits = np.load('../data/handlebars_tsr_splits.npz')['tsr_splits']
     lock_tsr_splits = np.load('../data/bike_lock_tsr_splits.npz')['tsr_splits']
     idxs = list(range(8))
     test_set = []
     for i in idxs:
+        print i
         handles_feas = handles_data[i]
         handles_pose = handles_poses[i]
         handles_tsr_split = handles_tsr_splits[i]
         plot_pose(handles_feas, handles_pose)
         handles_theta = get_theta_ground_truth(TRUE_MEAN, handles_feas, handles_tsr_split)
         test_set.append((np.copy(handles_theta), np.copy(handles_feas)))
-
+    for i in idxs:
+        print i + 8
         lock_feas = lock_data[i]
         lock_pose = lock_poses[i]
         lock_tsr_split = lock_tsr_splits[i]
         plot_pose(lock_feas, lock_pose)
         lock_theta = get_theta_ground_truth(TRUE_MEAN, lock_feas, lock_tsr_split)
         test_set.append((np.copy(lock_theta), np.copy(lock_feas)))
-    np.savez("../data/mean_bike_human_trials/test_set_different.npz", test_set=test_set)
+    np.savez("../data/user_study/subject%s_test_set.npz" % args.subject, test_set=test_set)
 #########################################################
 handles_datasets = []
 lock_datasets = []
@@ -313,8 +325,8 @@ for ind in range(15):
 for link in robot.GetLinks():
     for geom in link.GetGeometries():
         geom.SetTransparency(0.8)
-collect_test_set(all_handles_data, handles_poses, all_lock_data, lock_poses)
-1/0
+# collect_test_set(all_handles_data, handles_poses, all_lock_data, lock_poses)
+# 1/0
 def info_gain(dist, x):
     return (x, dist.info_gain(x, num_boxes=20))
 def min_cost(dist, x):
@@ -340,7 +352,9 @@ if __name__ == '__main__':
         chosen_poses = [h for h in handles_chosen_poses]
         for l in lock_chosen_poses:
             chosen_poses.append(l)
-        # chosen_objects = objects[TEST_SET_SIZE:][idxs]
+        # collect_test_set(all_handles_data, handles_poses, all_lock_data, lock_poses)
+        # collect_training_set(data, chosen_poses)
+        # 1/0
 
         particles = []
         weights = []
@@ -361,20 +375,18 @@ if __name__ == '__main__':
         ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=RESAMPLING_VARIANCE)
         dist_passive = SetWeightsParticleDistribution(np.copy(particles), np.copy(weights), cost, w=TRUE_WEIGHTS,\
         ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=RESAMPLING_VARIANCE)
-        dist_random = SetWeightsParticleDistribution(np.copy(particles), np.copy(weights), cost, w=TRUE_WEIGHTS,\
-        ALPHA_I=ALPHA_I, ALPHA_O=ALPHA_O, h=RESAMPLING_VARIANCE)
 
-        expected_infos, particles_active = train_active(dist_active, data, chosen_poses)
         expected_costs, particles_passive = train_min_cost(dist_passive, data, chosen_poses)
-        particles_random = train_random(dist_random, data, chosen_poses)
+        expected_infos, particles_active = train_active(dist_active, data, chosen_poses)
 
         pickle_dict = {'training_data': data, \
                         'distribution_active': dist_active, 'distribution_passive': dist_passive, \
-                        'distribution_random': dist_random, \
                         'expected_infos': expected_infos,\
                         'expected_costs': expected_costs, 'training_poses': chosen_poses[:], \
-                        'particles_active': particles_active, 'particles_passive': particles_passive, \
-                        'particles_random': particles_random}
-        output = open('%s/set%s.pkl' % (DISTRIBUTION_DATA_FOLDER, set_idx), 'wb')
+                        'particles_active': particles_active, 'particles_passive': particles_passive}
+        output = open('%s/subject%s_beleifs.pkl' % (DISTRIBUTION_DATA_FOLDER, args.subject), 'wb')
         pickle.dump(pickle_dict, output)
         output.close()
+
+        collect_test_set(all_handles_data, handles_poses, all_lock_data, lock_poses)
+        collect_training_set(data, chosen_poses)
